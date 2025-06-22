@@ -1,6 +1,15 @@
- # Storage Manager Pro
+# Storage Manager Pro
 
 Storage Manager Pro 是一款强大的 Chrome 扩展，用于管理网页的 localStorage、sessionStorage、Cookies 和 IndexedDB。
+
+## 最新更新 (2025.06)
+
+- **UI优化**：
+  - 修复编辑localStorage时确认和取消按钮超出边界无法点击的问题
+  - 优化编辑cookie界面，解决确认取消按钮贴边的布局问题
+  - 改进模态框显示，确保在各种屏幕尺寸下按钮都能正常显示
+  - 优化按钮文字居中显示
+  - 增强编辑区域的用户体验，支持文本区域大小调整
 
 ## 功能特点
 
@@ -120,6 +129,9 @@ Storage Manager Pro 是一款强大的 Chrome 扩展，用于管理网页的 loc
 
 - **Q: 配置文件能跨设备同步吗？**
   A: 默认情况下配置文件存储在本地，如需跨设备使用，可以导出后手动导入。
+
+- **Q: 在编辑大量JSON数据时如何改善体验？**
+  A: 使用弹窗中的"格式化JSON"和"压缩JSON"按钮，可以更方便地查看和编辑JSON数据。另外，编辑框支持大小调整，可根据内容长度进行调整。
 
 ## 隐私和安全说明
 

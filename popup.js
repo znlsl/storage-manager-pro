@@ -9,6 +9,7 @@ let selectedAccountId = null;
 async function initializeProfileSelector() {
   const profiles = profileManager.getProfileList();
   const profileSelect = document.getElementById('profileSelect');
+  const currentProfileName = profileManager.getCurrentProfileName();
   
   profileSelect.innerHTML = '<option value="">选择配置文件...</option>';
   profiles.forEach(profile => {
@@ -17,6 +18,35 @@ async function initializeProfileSelector() {
     option.textContent = profile.name;
     profileSelect.appendChild(option);
   });
+  
+  // 显示当前配置信息
+  const currentProfileInfo = document.createElement('div');
+  currentProfileInfo.id = 'currentProfileInfo';
+  currentProfileInfo.className = 'current-profile-info';
+  
+  // 插入到配置选择器下方
+  const profileSelector = document.querySelector('.profile-selector');
+  if (!document.getElementById('currentProfileInfo')) {
+    profileSelector.insertAdjacentElement('afterend', currentProfileInfo);
+  } else {
+    currentProfileInfo.parentNode.replaceChild(currentProfileInfo, document.getElementById('currentProfileInfo'));
+  }
+  
+  // 更新当前配置显示
+  updateCurrentProfileDisplay();
+}
+
+// 更新当前配置显示
+function updateCurrentProfileDisplay() {
+  const currentProfileInfo = document.getElementById('currentProfileInfo');
+  const currentProfileName = profileManager.getCurrentProfileName();
+  
+  if (currentProfileName && currentProfileInfo) {
+    currentProfileInfo.innerHTML = `<span class="current-profile-label">当前配置: </span><span class="current-profile-name">${escapeHtml(currentProfileName)}</span>`;
+    currentProfileInfo.style.display = 'block';
+  } else if (currentProfileInfo) {
+    currentProfileInfo.style.display = 'none';
+  }
 }
 
 // 保存当前配置为配置文件
@@ -84,6 +114,18 @@ document.getElementById('saveNewProfile').addEventListener('click', async functi
   const includeLocalStorage = document.getElementById('includeLocalStorage').checked;
   const includeCookies = document.getElementById('includeCookies').checked;
   
+  // 检查是否已存在同名配置
+  const profiles = profileManager.getProfileList();
+  const existingProfile = profiles.find(p => p.name === profileName);
+  let shouldOverwrite = false;
+  
+  if (existingProfile) {
+    shouldOverwrite = confirm(`配置文件 "${profileName}" 已存在，是否覆盖？`);
+    if (!shouldOverwrite) {
+      return;
+    }
+  }
+  
   const profileData = {
     domain: currentDomain,
     includeLocalStorage: includeLocalStorage,
@@ -117,12 +159,17 @@ document.getElementById('saveNewProfile').addEventListener('click', async functi
     profileData.cookies = await chrome.cookies.getAll({url: tab.url});
   }
   
-  await profileManager.saveProfile(profileName, profileData);
+  // 保存配置，支持覆盖
+  const saved = await profileManager.saveProfile(profileName, profileData, shouldOverwrite);
   
-  document.getElementById('profileModal').classList.remove('show');
-  document.getElementById('profileName').value = '';
-  initializeProfileSelector();
-  alert(`配置文件 "${profileName}" 已保存`);
+  if (saved) {
+    document.getElementById('profileModal').classList.remove('show');
+    document.getElementById('profileName').value = '';
+    initializeProfileSelector();
+    alert(`配置文件 "${profileName}" 已保存`);
+  } else {
+    alert(`保存配置文件 "${profileName}" 失败`);
+  }
 });
 
 // 加载配置文件
@@ -134,6 +181,8 @@ async function loadProfile(profileName) {
   }
   
   const data = profile.data;
+  let localStorageChanged = false;
+  let cookiesChanged = false;
   
   // 恢复 LocalStorage
   if (data.includeLocalStorage && data.localStorage) {
@@ -148,46 +197,95 @@ async function loadProfile(profileName) {
       },
       args: [data.localStorage]
     });
+    localStorageChanged = true;
   }
   
   // 恢复 Cookies
-  if (data.includeCookies && data.cookies) {
+  if (data.includeCookies && data.cookies && data.cookies.length > 0) {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     
-    // 清除现有cookies
-    const currentCookies = await chrome.cookies.getAll({url: tab.url});
-    for (const cookie of currentCookies) {
-      await chrome.cookies.remove({
-        url: tab.url,
-        name: cookie.name
+    try {
+      console.log('开始设置cookies，共', data.cookies.length, '个');
+      
+      // 清除现有cookies
+      const currentCookies = await chrome.cookies.getAll({url: tab.url});
+      console.log('当前cookies数量:', currentCookies.length);
+      
+      for (const cookie of currentCookies) {
+        await chrome.cookies.remove({
+          url: tab.url,
+          name: cookie.name
+        });
+      }
+      
+      // 设置新cookies，使用Promise.all提高效率
+      const setCookiePromises = data.cookies.map(async cookie => {
+        const cookieData = {
+          url: tab.url,
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain || undefined,
+          path: cookie.path || '/',
+          secure: !!cookie.secure,
+          httpOnly: !!cookie.httpOnly
+        };
+        
+        if (cookie.expirationDate) {
+          cookieData.expirationDate = cookie.expirationDate;
+        }
+        
+        try {
+          // 确保cookie被成功设置
+          const result = await chrome.cookies.set(cookieData);
+          return result ? 1 : 0;
+        } catch (e) {
+          console.error('设置cookie失败:', cookie.name, e);
+          return 0;
+        }
       });
-    }
-    
-    // 设置新cookies
-    for (const cookie of data.cookies) {
-      const cookieData = {
-        url: tab.url,
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly
-      };
       
-      if (cookie.expirationDate) {
-        cookieData.expirationDate = cookie.expirationDate;
-      }
+      const results = await Promise.all(setCookiePromises);
+      const successCount = results.reduce((a, b) => a + b, 0);
+      console.log(`成功设置${successCount}个cookies，共${data.cookies.length}个`);
       
-      try {
-        await chrome.cookies.set(cookieData);
-      } catch (e) {
-        console.error('设置cookie失败:', e);
-      }
+      // 验证cookies是否成功设置
+      const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
+      console.log('设置后cookies数量:', verifiedCookies.length);
+      
+      cookiesChanged = true;
+    } catch (error) {
+      console.error('恢复cookies过程中出错:', error);
     }
   }
   
-  loadStorageData();
+  // 等待一小段时间，确保cookies设置完成
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // 根据当前标签页更新显示
+  switch (currentTab) {
+    case 'localStorage':
+      if (localStorageChanged) {
+        await loadLocalStorage();
+      }
+      break;
+    case 'sessionStorage':
+      await loadSessionStorage();
+      break;
+    case 'cookies':
+      // 无论如何都刷新cookie显示，以确保数据是最新的
+      await loadCookies();
+      break;
+    case 'indexedDB':
+      await loadIndexedDB();
+      break;
+  }
+  
+  // 如果当前不在cookies标签页，但cookies已更改，则异步加载cookies数据
+  if (currentTab !== 'cookies' && cookiesChanged) {
+    await loadCookies(); // 无论如何都预加载cookies数据
+  }
+  
+  updateCurrentProfileDisplay();
   alert(`已加载配置文件: ${profileName}`);
 }
 
@@ -458,9 +556,11 @@ document.getElementById('confirmAccount').addEventListener('click', async functi
           }
         }
         
-        alert('账户切换成功！');
+        alert('账户切换成功！页面将刷新以应用新的Cookie');
         document.getElementById('accountModal').classList.remove('show');
-        loadCookies();
+        
+        // 刷新页面以应用新的cookie
+        chrome.tabs.reload(tab.id);
       }
     }
   }
@@ -495,51 +595,51 @@ document.getElementById('cancelAccount').addEventListener('click', function() {
   selectedAccountId = null;
 });
 
-// 在页面加载时初始化
+// 加载页面初始化
 document.addEventListener('DOMContentLoaded', function() {
-  initializeProfileSelector();
-});
-
-// 获取当前标签页信息
-chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-  if (tabs[0]) {
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     const url = new URL(tabs[0].url);
     currentDomain = url.hostname;
     document.getElementById('currentDomain').textContent = currentDomain;
-    loadStorageData();
-  }
-});
-
-// 标签切换
-document.querySelectorAll('.tab-button').forEach(button => {
-  button.addEventListener('click', function() {
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
     
-    this.classList.add('active');
-    currentTab = this.dataset.tab;
-    document.getElementById(currentTab).classList.add('active');
-    
+    initializeProfileSelector();
     loadStorageData();
+    
+    // 点击标签页切换
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        
+        this.classList.add('active');
+        document.getElementById(this.dataset.tab).classList.add('active');
+        currentTab = this.dataset.tab;
+        
+        loadStorageData();
+      });
+    });
   });
 });
 
 // 加载存储数据
 async function loadStorageData() {
-  switch(currentTab) {
+  switch (currentTab) {
     case 'localStorage':
-      loadLocalStorage();
+      await loadLocalStorage();
       break;
     case 'sessionStorage':
-      loadSessionStorage();
+      await loadSessionStorage();
       break;
     case 'cookies':
-      loadCookies();
+      await loadCookies();
       break;
     case 'indexedDB':
-      loadIndexedDB();
+      await loadIndexedDB();
       break;
   }
+  
+  // 更新当前配置显示
+  updateCurrentProfileDisplay();
 }
 
 // 加载LocalStorage
@@ -585,8 +685,16 @@ async function loadSessionStorage() {
 // 加载Cookies
 async function loadCookies() {
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  const cookies = await chrome.cookies.getAll({url: tab.url});
-  displayCookies(cookies);
+  
+  try {
+    // 使用 await 确保获取到cookies
+    const cookies = await chrome.cookies.getAll({url: tab.url});
+    console.log('Loaded cookies:', cookies); // 调试信息
+    displayCookies(cookies);
+  } catch (error) {
+    console.error('获取cookies失败:', error);
+    displayCookies([]); // 失败时显示空列表
+  }
 }
 
 // 加载IndexedDB
@@ -599,30 +707,101 @@ async function loadIndexedDB() {
       const dbInfo = [];
       
       for (const db of databases) {
-        const openReq = indexedDB.open(db.name);
-        await new Promise((resolve) => {
-          openReq.onsuccess = () => {
-            const database = openReq.result;
-            const stores = [];
-            
-            for (const storeName of database.objectStoreNames) {
-              stores.push({
-                name: storeName,
-                count: '无法获取数量'
+        try {
+          const openReq = indexedDB.open(db.name);
+          await new Promise((resolve) => {
+            openReq.onsuccess = async () => {
+              const database = openReq.result;
+              const stores = [];
+              const objectStoreNames = Array.from(database.objectStoreNames);
+              
+              // 为每个对象仓库获取详细信息
+              for (const storeName of objectStoreNames) {
+                try {
+                  // 创建一个只读事务
+                  const transaction = database.transaction(storeName, 'readonly');
+                  const objectStore = transaction.objectStore(storeName);
+                  
+                  // 获取对象仓库的计数
+                  const countRequest = objectStore.count();
+                  const count = await new Promise((resolveCount, rejectCount) => {
+                    countRequest.onsuccess = () => resolveCount(countRequest.result);
+                    countRequest.onerror = () => rejectCount(new Error("获取计数失败"));
+                  });
+                  
+                  // 获取对象仓库的前10条记录作为样本数据
+                  let sampleData = [];
+                  try {
+                    const getRequest = objectStore.getAll(null, 10); // 限制为前10条记录
+                    sampleData = await new Promise((resolveData, rejectData) => {
+                      getRequest.onsuccess = () => {
+                        const result = getRequest.result;
+                        // 对于大对象，只返回简短概要以避免数据过大
+                        const processedData = result.map(item => {
+                          try {
+                            return {
+                              key: item.id || '未知', // 假设使用id作为键
+                              preview: JSON.stringify(item).substring(0, 200) + (JSON.stringify(item).length > 200 ? '...' : '')
+                            };
+                          } catch (e) {
+                            return { key: '无法处理', preview: '数据格式无法显示' };
+                          }
+                        });
+                        resolveData(processedData);
+                      };
+                      getRequest.onerror = () => rejectData(new Error("获取数据失败"));
+                    });
+                  } catch (e) {
+                    console.error('获取样本数据失败:', e);
+                    sampleData = [{ key: '错误', preview: '无法获取数据: ' + e.message }];
+                  }
+                  
+                  // 获取索引信息
+                  const indices = [];
+                  for (const indexName of Array.from(objectStore.indexNames)) {
+                    indices.push(indexName);
+                  }
+                  
+                  stores.push({
+                    name: storeName,
+                    count: count,
+                    keyPath: objectStore.keyPath,
+                    indices: indices,
+                    sampleData: sampleData
+                  });
+                } catch (storeError) {
+                  stores.push({
+                    name: storeName,
+                    count: '访问失败',
+                    error: storeError.message
+                  });
+                }
+              }
+              
+              dbInfo.push({
+                name: db.name,
+                version: database.version,
+                stores: stores
               });
-            }
-            
-            dbInfo.push({
-              name: db.name,
-              version: database.version,
-              stores: stores
-            });
-            
-            database.close();
-            resolve();
-          };
-          openReq.onerror = resolve;
-        });
+              
+              database.close();
+              resolve();
+            };
+            openReq.onerror = (error) => {
+              // 处理打开数据库错误
+              dbInfo.push({
+                name: db.name,
+                error: "无法打开数据库: " + error.target.error
+              });
+              resolve();
+            };
+          });
+        } catch (dbError) {
+          dbInfo.push({
+            name: db.name,
+            error: "处理数据库时出错: " + dbError.message
+          });
+        }
       }
       
       return dbInfo;
@@ -723,6 +902,14 @@ function displayCookies(cookies) {
   const listElement = document.getElementById('cookiesList');
   listElement.innerHTML = '';
   
+  // 确保cookies是数组
+  if (!Array.isArray(cookies)) {
+    console.error('cookies不是数组类型:', cookies);
+    cookies = [];
+  }
+  
+  console.log('显示cookies数量:', cookies.length);
+  
   if (cookies.length === 0) {
     listElement.innerHTML = `
       <div class="empty-state">
@@ -739,12 +926,20 @@ function displayCookies(cookies) {
   }
   
   const searchTerm = document.getElementById('searchCookies').value.toLowerCase();
+  let displayedCount = 0;
   
   cookies.forEach(cookie => {
-    if (searchTerm && !cookie.name.toLowerCase().includes(searchTerm) && !cookie.value.toLowerCase().includes(searchTerm)) {
+    if (!cookie || !cookie.name) {
+      console.error('无效的cookie对象:', cookie);
       return;
     }
     
+    if (searchTerm && !cookie.name.toLowerCase().includes(searchTerm) && 
+        !cookie.value.toLowerCase().includes(searchTerm)) {
+      return;
+    }
+    
+    displayedCount++;
     const item = document.createElement('div');
     item.className = 'storage-item';
     
@@ -758,8 +953,8 @@ function displayCookies(cookies) {
       </div>
       <div class="storage-value">${escapeHtml(cookie.value)}</div>
       <div class="cookie-details">
-        <span>域名: ${cookie.domain}</span>
-        <span>路径: ${cookie.path}</span>
+        <span>域名: ${escapeHtml(cookie.domain || '')}</span>
+        <span>路径: ${escapeHtml(cookie.path || '/')}</span>
         ${cookie.expirationDate ? `<span>过期: ${new Date(cookie.expirationDate * 1000).toLocaleString()}</span>` : ''}
         ${cookie.secure ? '<span>🔒 Secure</span>' : ''}
         ${cookie.httpOnly ? '<span>🔐 HttpOnly</span>' : ''}
@@ -780,6 +975,22 @@ function displayCookies(cookies) {
     
     listElement.appendChild(item);
   });
+  
+  console.log('实际显示cookie数量:', displayedCount);
+  
+  // 如果应该有cookie但没有显示，表明可能有问题
+  if (cookies.length > 0 && displayedCount === 0) {
+    listElement.innerHTML = `
+      <div class="empty-state warning">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p>找到 ${cookies.length} 个Cookie，但没有匹配当前搜索条件</p>
+      </div>
+    `;
+  }
 }
 
 // 显示IndexedDB
@@ -791,8 +1002,8 @@ function displayIndexedDB(databases) {
     listElement.innerHTML = `
       <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
         </svg>
         <p>暂无IndexedDB数据库</p>
       </div>
@@ -801,28 +1012,202 @@ function displayIndexedDB(databases) {
   }
   
   databases.forEach(db => {
-    const item = document.createElement('div');
-    item.className = 'db-item';
+    const dbElement = document.createElement('div');
+    dbElement.className = 'db-item';
     
-    let storesHtml = '';
-    db.stores.forEach(store => {
-      storesHtml += `
-        <div class="object-store">
-          <div class="store-name">${escapeHtml(store.name)}</div>
-          <div class="store-count">记录数: ${store.count}</div>
+    // 如果有错误信息则显示
+    if (db.error) {
+      dbElement.innerHTML = `
+        <div class="db-header">
+          <h3>${escapeHtml(db.name)}</h3>
         </div>
+        <div class="db-error">错误: ${escapeHtml(db.error)}</div>
       `;
-    });
+      listElement.appendChild(dbElement);
+      return;
+    }
     
-    item.innerHTML = `
-      <div class="db-name">数据库: ${escapeHtml(db.name)} (版本: ${db.version})</div>
-      <div class="stores-container">
-        ${storesHtml}
+    dbElement.innerHTML = `
+      <div class="db-header">
+        <h3>${escapeHtml(db.name)}</h3>
+        <span class="badge">v${db.version}</span>
       </div>
+      <div class="stores-container"></div>
     `;
     
-    listElement.appendChild(item);
+    const storesContainer = dbElement.querySelector('.stores-container');
+    
+    if (!db.stores || db.stores.length === 0) {
+      storesContainer.innerHTML = '<div class="empty-state-small">无对象仓库</div>';
+    } else {
+      db.stores.forEach(store => {
+        const storeElement = document.createElement('div');
+        storeElement.className = 'store-item';
+        
+        // 构建索引信息
+        let indicesHtml = '';
+        if (store.indices && store.indices.length > 0) {
+          indicesHtml = `
+            <div class="store-indices">
+              <div class="store-section-title">索引:</div>
+              <div class="indices-list">${store.indices.map(idx => `<span class="index-badge">${escapeHtml(idx)}</span>`).join(' ')}</div>
+            </div>
+          `;
+        }
+        
+        // 构建样本数据显示
+        let sampleDataHtml = '';
+        if (store.sampleData && store.sampleData.length > 0) {
+          sampleDataHtml = `
+            <div class="store-samples">
+              <div class="store-section-title">样本数据 (前10条):</div>
+              <div class="samples-container">
+                ${store.sampleData.map(sample => `
+                  <div class="sample-item">
+                    <div class="sample-key">${escapeHtml(String(sample.key))}</div>
+                    <div class="sample-preview">${escapeHtml(sample.preview)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+        
+        // 构建错误信息
+        let errorHtml = '';
+        if (store.error) {
+          errorHtml = `<div class="store-error">错误: ${escapeHtml(store.error)}</div>`;
+        }
+        
+        storeElement.innerHTML = `
+          <div class="store-header">
+            <div class="store-name">${escapeHtml(store.name)}</div>
+            <div class="store-meta">
+              <span class="store-count">项目数: ${escapeHtml(String(store.count))}</span>
+              ${store.keyPath ? `<span class="store-keypath">主键: ${escapeHtml(String(store.keyPath))}</span>` : ''}
+            </div>
+          </div>
+          ${errorHtml}
+          ${indicesHtml}
+          ${sampleDataHtml}
+        `;
+        
+        storesContainer.appendChild(storeElement);
+      });
+    }
+    
+    listElement.appendChild(dbElement);
   });
+
+  // 添加样式
+  const styleElement = document.getElementById('indexedDbStyles') || document.createElement('style');
+  if (!document.getElementById('indexedDbStyles')) {
+    styleElement.id = 'indexedDbStyles';
+    styleElement.textContent = `
+      .db-item {
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .db-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background-color: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+      }
+      .db-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .badge {
+        background: #e0e0e0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .store-item {
+        padding: 12px 15px;
+        border-bottom: 1px solid #eee;
+      }
+      .store-item:last-child {
+        border-bottom: none;
+      }
+      .store-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+      .store-name {
+        font-weight: 600;
+        color: #333;
+      }
+      .store-meta {
+        font-size: 12px;
+        color: #666;
+      }
+      .store-count, .store-keypath {
+        margin-left: 10px;
+      }
+      .store-section-title {
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 12px;
+        margin-bottom: 8px;
+      }
+      .index-badge {
+        display: inline-block;
+        background: #eef2f7;
+        padding: 2px 6px;
+        margin: 2px;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+      .store-samples {
+        margin-top: 10px;
+      }
+      .sample-item {
+        margin-bottom: 8px;
+        border-left: 3px solid #e0e0e0;
+        padding-left: 10px;
+      }
+      .sample-key {
+        font-weight: 600;
+        font-size: 12px;
+        margin-bottom: 3px;
+      }
+      .sample-preview {
+        font-family: monospace;
+        font-size: 12px;
+        background: #f7f7f7;
+        padding: 8px;
+        border-radius: 3px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 100px;
+        overflow-y: auto;
+      }
+      .store-error, .db-error {
+        color: #d32f2f;
+        font-size: 13px;
+        padding: 8px;
+        background-color: #ffebee;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      .empty-state-small {
+        font-size: 13px;
+        color: #888;
+        text-align: center;
+        padding: 15px;
+      }
+    `;
+    document.head.appendChild(styleElement);
+  }
 }
 
 // 打开编辑弹窗
@@ -832,10 +1217,29 @@ function openEditModal(key, value, type, cookieData = null) {
   const keyInput = document.getElementById('editKey');
   const valueInput = document.getElementById('editValue');
   const cookieFields = document.getElementById('cookieFields');
+  const modalFooter = document.querySelector('.modal-footer');
   
   modalTitle.textContent = editingItem === null ? '添加项目' : '编辑项目';
   keyInput.value = key || '';
-  valueInput.value = value || '';
+  
+  // 尝试格式化JSON
+  let formattedValue = value || '';
+  if (type === 'localStorage' || type === 'sessionStorage') {
+    try {
+      const jsonObj = JSON.parse(value);
+      formattedValue = JSON.stringify(jsonObj, null, 2);
+    } catch (e) {
+      // 不是有效的JSON，使用原始值
+      formattedValue = value;
+    }
+  }
+  valueInput.value = formattedValue;
+  
+  // 确保按钮可见，特别是在内容较长的情况下
+  modalFooter.style.position = 'sticky';
+  modalFooter.style.bottom = '0';
+  modalFooter.style.backgroundColor = 'white';
+  modalFooter.style.zIndex = '20';
   
   if (type === 'cookie') {
     cookieFields.style.display = 'block';
@@ -854,7 +1258,67 @@ function openEditModal(key, value, type, cookieData = null) {
     cookieFields.style.display = 'none';
   }
   
+  // 添加格式化和压缩JSON按钮
+  const formatSection = document.getElementById('formatSection') || document.createElement('div');
+  formatSection.id = 'formatSection';
+  formatSection.style.marginTop = '10px';
+  formatSection.style.marginBottom = '15px'; // 增加底部间距，避免贴近操作按钮
+  formatSection.innerHTML = `
+    <button id="formatJson" class="btn btn-sm">格式化JSON</button>
+    <button id="minifyJson" class="btn btn-sm">压缩JSON</button>
+  `;
+  
+  // 如果是localStorage或sessionStorage，显示格式化按钮
+  if (type === 'localStorage' || type === 'sessionStorage') {
+    if (!document.getElementById('formatSection')) {
+      document.querySelector('.modal-footer').insertAdjacentElement('beforebegin', formatSection);
+    } else {
+      formatSection.style.display = 'block';
+    }
+    
+    // 绑定格式化按钮事件
+    document.getElementById('formatJson').onclick = function() {
+      try {
+        const jsonObj = JSON.parse(valueInput.value);
+        valueInput.value = JSON.stringify(jsonObj, null, 2);
+      } catch (e) {
+        alert('不是有效的JSON格式');
+      }
+    };
+    
+    // 绑定压缩按钮事件
+    document.getElementById('minifyJson').onclick = function() {
+      try {
+        const jsonObj = JSON.parse(valueInput.value);
+        valueInput.value = JSON.stringify(jsonObj);
+      } catch (e) {
+        alert('不是有效的JSON格式');
+      }
+    };
+  } else if (document.getElementById('formatSection')) {
+    formatSection.style.display = 'none';
+  }
+  
+  // 设置模态框最大高度，确保在任何屏幕尺寸下都能看到操作按钮
+  const modalContent = modal.querySelector('.modal-content');
+  modalContent.style.maxHeight = '90vh';
+  
   modal.classList.add('show');
+  
+  // 确保内容可正常滚动，按钮区域可见
+  setTimeout(() => {
+    const modalBody = modal.querySelector('.modal-body');
+    modalBody.style.paddingBottom = '15px';
+    
+    // 应用完样式后滚动到顶部
+    modalBody.scrollTop = 0;
+    
+    // 添加调整事件监听
+    adjustModalSize();
+    
+    // 添加窗口大小变化事件监听
+    window.addEventListener('resize', adjustModalSize);
+  }, 10);
 }
 
 // 关闭编辑弹窗
@@ -865,6 +1329,44 @@ function closeEditModal() {
   document.getElementById('editModal').classList.remove('show');
   editingItem = null;
   editingType = '';
+  
+  // 移除窗口大小变化事件监听
+  window.removeEventListener('resize', adjustModalSize);
+}
+
+// 调整模态框大小，确保按钮可见
+function adjustModalSize() {
+  const modal = document.getElementById('editModal');
+  if (!modal.classList.contains('show')) return;
+  
+  const modalContent = modal.querySelector('.modal-content');
+  const modalBody = modal.querySelector('.modal-body');
+  const modalFooter = modal.querySelector('.modal-footer');
+  
+  // 获取视口高度
+  const viewportHeight = window.innerHeight;
+  
+  // 确保模态框不超过视口高度的90%
+  modalContent.style.maxHeight = `${viewportHeight * 0.9}px`;
+  
+  // 计算模态框头部和底部的高度
+  const headerHeight = modal.querySelector('.modal-header').offsetHeight;
+  const footerHeight = modalFooter.offsetHeight;
+  
+  // 计算模态框主体可用高度
+  const availableHeight = viewportHeight * 0.9 - headerHeight - footerHeight;
+  
+  // 设置模态框主体高度
+  modalBody.style.maxHeight = `${availableHeight}px`;
+  
+  // 确保在模态框内容过长时，底部按钮保持可见
+  if (modalBody.scrollHeight > modalBody.clientHeight) {
+    // 内容超出显示区域，设置底部按钮粘性定位
+    modalFooter.style.position = 'sticky';
+    modalFooter.style.bottom = '0';
+    modalFooter.style.backgroundColor = 'white';
+    modalFooter.style.zIndex = '20';
+  }
 }
 
 // 保存编辑
@@ -907,6 +1409,11 @@ async function saveStorageItem(key, value, type) {
       }
     },
     args: [key, value, type, editingItem]
+  }, async () => {
+    // 如果是localStorage，自动更新当前配置
+    if (type === 'localStorage') {
+      await updateCurrentProfileAfterLocalStorageChange();
+    }
   });
 }
 
@@ -939,6 +1446,9 @@ async function saveCookie() {
   }
   
   await chrome.cookies.set(cookieData);
+  
+  // 自动更新当前配置的cookie
+  await updateCurrentProfileAfterCookieChange();
 }
 
 // 删除存储项目
@@ -956,8 +1466,13 @@ async function deleteStorageItem(key, type) {
         }
       },
       args: [key, type]
-    }, () => {
+    }, async () => {
       loadStorageData();
+      
+      // 如果是localStorage，自动更新当前配置
+      if (type === 'localStorage') {
+        await updateCurrentProfileAfterLocalStorageChange();
+      }
     });
   }
 }
@@ -973,6 +1488,9 @@ async function deleteCookie(cookie) {
     });
     
     loadCookies();
+    
+    // 自动更新当前配置的cookie
+    await updateCurrentProfileAfterCookieChange();
   }
 }
 
@@ -1054,4 +1572,36 @@ function escapeHtml(unsafe) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// 自动更新当前配置 - LocalStorage 修改后
+async function updateCurrentProfileAfterLocalStorageChange() {
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  const result = await chrome.scripting.executeScript({
+    target: {tabId: tab.id},
+    func: () => {
+      const items = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        items[key] = localStorage.getItem(key);
+      }
+      return items;
+    }
+  });
+  
+  if (result && result[0]) {
+    await profileManager.updateCurrentProfile(currentDomain, result[0].result, null);
+    // 更新配置显示
+    updateCurrentProfileDisplay();
+  }
+}
+
+// 自动更新当前配置 - Cookie 修改后
+async function updateCurrentProfileAfterCookieChange() {
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  const cookies = await chrome.cookies.getAll({url: tab.url});
+  
+  await profileManager.updateCurrentProfile(currentDomain, null, cookies);
+  // 更新配置显示
+  updateCurrentProfileDisplay();
 }
