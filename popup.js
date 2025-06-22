@@ -253,7 +253,36 @@ async function loadProfile(profileName) {
       
       // 只有当配置中有cookie时才进行处理
       if (data.cookies && data.cookies.length > 0) {
-        console.log('开始设置cookies，共', data.cookies.length, '个');
+        // 获取当前URL对象和顶级域名
+        const urlObj = new URL(tab.url);
+        const currentDomain = urlObj.hostname;
+        const currentTopDomain = extractTopLevelDomain(currentDomain);
+        
+        console.log(`当前域名: ${currentDomain}, 顶级域名: ${currentTopDomain}`);
+        
+        // 筛选出与当前顶级域名匹配的cookie
+        const compatibleCookies = data.cookies.filter(cookie => {
+          if (!cookie || !cookie.domain) return false;
+          
+          const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+          const cookieTopDomain = extractTopLevelDomain(cookieDomain);
+          
+          // 检查是否是同一个顶级域名
+          const isCompatible = cookieTopDomain === currentTopDomain;
+          if (!isCompatible) {
+            console.log(`跳过不匹配的cookie: ${cookie.name}, 域名: ${cookieDomain}, 顶级域名: ${cookieTopDomain}`);
+          }
+          return isCompatible;
+        });
+        
+        console.log(`总共${data.cookies.length}个cookie, 与当前域名兼容的有${compatibleCookies.length}个`);
+        
+        if (compatibleCookies.length === 0) {
+          console.log('没有可恢复的兼容cookie，保留当前页面cookie');
+          return;
+        }
+        
+        console.log('开始设置cookies，共', compatibleCookies.length, '个');
         
         // 清除现有cookies - 只在配置中有cookie时才清除
         const currentCookies = await chrome.cookies.getAll({url: tab.url});
@@ -271,7 +300,7 @@ async function loadProfile(profileName) {
         }
         
         // 设置新cookies，使用Promise.all提高效率
-        const setCookiePromises = data.cookies.map(async cookie => {
+        const setCookiePromises = compatibleCookies.map(async cookie => {
           // 跳过无效的cookie
           if (!cookie || !cookie.name) {
             console.warn('跳过无效cookie:', cookie);
@@ -304,7 +333,7 @@ async function loadProfile(profileName) {
         try {
           const results = await Promise.all(setCookiePromises);
           const successCount = results.reduce((a, b) => a + b, 0);
-          console.log(`成功设置${successCount}个cookies，共${data.cookies.length}个`);
+          console.log(`成功设置${successCount}个cookies，共${compatibleCookies.length}个`);
           
           // 验证cookies是否成功设置
           const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
@@ -1755,3 +1784,5 @@ async function updateCurrentProfileAfterCookieChange() {
   // 更新配置显示
   updateCurrentProfileDisplay();
 }
+
+// extractTopLevelDomain函数已在profiles.js中定义
