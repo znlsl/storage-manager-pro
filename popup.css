@@ -788,3 +788,35 @@ textarea.form-control {
 .current-profile-name {
   font-weight: 600;
 }
+
+/* 错误信息样式 */
+.error-message {
+  margin: 20px;
+  padding: 15px;
+  background-color: #ffebee;
+  border-left: 4px solid #f44336;
+  border-radius: 4px;
+  color: #b71c1c;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.error-message svg {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  stroke: #f44336;
+}
+
+.error-message p {
+  margin: 0;
+}
+
+/* 禁用状态样式 */
+button:disabled,
+input:disabled,
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

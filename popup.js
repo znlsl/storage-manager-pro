@@ -134,41 +134,69 @@ document.getElementById('saveNewProfile').addEventListener('click', async functi
     cookies: []
   };
   
-  // 获取当前数据
-  if (includeLocalStorage) {
+  try {
+    // 获取当前标签页
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    const result = await chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      func: () => {
-        const items = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          items[key] = localStorage.getItem(key);
-        }
-        return items;
-      }
-    });
     
-    if (result && result[0]) {
-      profileData.localStorage = result[0].result;
+    if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+      alert('无法访问当前标签页或该标签页是Chrome内部页面');
+      return;
     }
-  }
-  
-  if (includeCookies) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    profileData.cookies = await chrome.cookies.getAll({url: tab.url});
-  }
-  
-  // 保存配置，支持覆盖
-  const saved = await profileManager.saveProfile(profileName, profileData, shouldOverwrite);
-  
-  if (saved) {
-    document.getElementById('profileModal').classList.remove('show');
-    document.getElementById('profileName').value = '';
-    initializeProfileSelector();
-    alert(`配置文件 "${profileName}" 已保存`);
-  } else {
-    alert(`保存配置文件 "${profileName}" 失败`);
+    
+    // 获取当前数据
+    if (includeLocalStorage) {
+      try {
+        const result = await chrome.scripting.executeScript({
+          target: {tabId: tab.id},
+          func: () => {
+            const items = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              items[key] = localStorage.getItem(key);
+            }
+            return items;
+          }
+        });
+        
+        if (result && result[0]) {
+          profileData.localStorage = result[0].result;
+        }
+      } catch (error) {
+        console.error('获取localStorage失败:', error);
+        alert(`获取localStorage失败: ${error.message}`);
+      }
+    }
+    
+    if (includeCookies) {
+      try {
+        const cookies = await chrome.cookies.getAll({url: tab.url});
+        
+        // 过滤无效的cookie，避免后续问题
+        profileData.cookies = cookies.filter(cookie => {
+          return cookie && cookie.name && cookie.domain;
+        });
+        
+        console.log(`已保存${profileData.cookies.length}个有效cookies`);
+      } catch (error) {
+        console.error('获取cookies失败:', error);
+        alert(`获取cookies失败: ${error.message}`);
+      }
+    }
+    
+    // 保存配置，支持覆盖
+    const saved = await profileManager.saveProfile(profileName, profileData, shouldOverwrite);
+    
+    if (saved) {
+      document.getElementById('profileModal').classList.remove('show');
+      document.getElementById('profileName').value = '';
+      initializeProfileSelector();
+      alert(`配置文件 "${profileName}" 已保存`);
+    } else {
+      alert(`保存配置文件 "${profileName}" 失败`);
+    }
+  } catch (error) {
+    console.error('保存配置文件过程中出错:', error);
+    alert(`保存配置文件出错: ${error.message}`);
   }
 });
 
@@ -186,75 +214,112 @@ async function loadProfile(profileName) {
   
   // 恢复 LocalStorage
   if (data.includeLocalStorage && data.localStorage) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    await chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      func: (items) => {
-        localStorage.clear();
-        Object.entries(items).forEach(([key, value]) => {
-          localStorage.setItem(key, value);
-        });
-      },
-      args: [data.localStorage]
-    });
-    localStorageChanged = true;
+    try {
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+      
+      if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+        console.error('无法访问当前标签页或该标签页是Chrome内部页面');
+        return;
+      }
+      
+      await chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        func: (items) => {
+          localStorage.clear();
+          Object.entries(items).forEach(([key, value]) => {
+            localStorage.setItem(key, value);
+          });
+        },
+        args: [data.localStorage]
+      });
+      localStorageChanged = true;
+    } catch (error) {
+      console.error('恢复localStorage失败:', error);
+      alert(`恢复localStorage失败: ${error.message}`);
+    }
   }
   
   // 恢复 Cookies
-  if (data.includeCookies && data.cookies && data.cookies.length > 0) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    
+  if (data.includeCookies) {
     try {
-      console.log('开始设置cookies，共', data.cookies.length, '个');
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
       
-      // 清除现有cookies
-      const currentCookies = await chrome.cookies.getAll({url: tab.url});
-      console.log('当前cookies数量:', currentCookies.length);
-      
-      for (const cookie of currentCookies) {
-        await chrome.cookies.remove({
-          url: tab.url,
-          name: cookie.name
-        });
+      if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+        console.error('无法访问当前标签页或该标签页是Chrome内部页面');
+        return;
       }
       
-      // 设置新cookies，使用Promise.all提高效率
-      const setCookiePromises = data.cookies.map(async cookie => {
-        const cookieData = {
-          url: tab.url,
-          name: cookie.name,
-          value: cookie.value,
-          domain: cookie.domain || undefined,
-          path: cookie.path || '/',
-          secure: !!cookie.secure,
-          httpOnly: !!cookie.httpOnly
-        };
+      console.log('处理配置中的cookies:', data.cookies);
+      
+      // 只有当配置中有cookie时才进行处理
+      if (data.cookies && data.cookies.length > 0) {
+        console.log('开始设置cookies，共', data.cookies.length, '个');
         
-        if (cookie.expirationDate) {
-          cookieData.expirationDate = cookie.expirationDate;
+        // 清除现有cookies - 只在配置中有cookie时才清除
+        const currentCookies = await chrome.cookies.getAll({url: tab.url});
+        console.log('当前cookies数量:', currentCookies.length);
+        
+        for (const cookie of currentCookies) {
+          try {
+            await chrome.cookies.remove({
+              url: tab.url,
+              name: cookie.name
+            });
+          } catch (error) {
+            console.error(`无法删除cookie ${cookie.name}:`, error);
+          }
         }
+        
+        // 设置新cookies，使用Promise.all提高效率
+        const setCookiePromises = data.cookies.map(async cookie => {
+          // 跳过无效的cookie
+          if (!cookie || !cookie.name) {
+            console.warn('跳过无效cookie:', cookie);
+            return 0;
+          }
+          
+          const cookieData = {
+            url: tab.url,
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain || undefined,
+            path: cookie.path || '/',
+            secure: !!cookie.secure,
+            httpOnly: !!cookie.httpOnly
+          };
+          
+          if (cookie.expirationDate) {
+            cookieData.expirationDate = cookie.expirationDate;
+          }
+          
+          try {
+            const result = await chrome.cookies.set(cookieData);
+            return result ? 1 : 0;
+          } catch (e) {
+            console.error('设置cookie失败:', cookie.name, e);
+            return 0;
+          }
+        });
         
         try {
-          // 确保cookie被成功设置
-          const result = await chrome.cookies.set(cookieData);
-          return result ? 1 : 0;
-        } catch (e) {
-          console.error('设置cookie失败:', cookie.name, e);
-          return 0;
+          const results = await Promise.all(setCookiePromises);
+          const successCount = results.reduce((a, b) => a + b, 0);
+          console.log(`成功设置${successCount}个cookies，共${data.cookies.length}个`);
+          
+          // 验证cookies是否成功设置
+          const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
+          console.log('设置后cookies数量:', verifiedCookies.length);
+        } catch (error) {
+          console.error('批量设置cookie时发生错误:', error);
         }
-      });
-      
-      const results = await Promise.all(setCookiePromises);
-      const successCount = results.reduce((a, b) => a + b, 0);
-      console.log(`成功设置${successCount}个cookies，共${data.cookies.length}个`);
-      
-      // 验证cookies是否成功设置
-      const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
-      console.log('设置后cookies数量:', verifiedCookies.length);
-      
-      cookiesChanged = true;
+        
+        cookiesChanged = true;
+      } else {
+        console.log('配置中无cookie数据，保留当前页面的cookie');
+      }
     } catch (error) {
       console.error('恢复cookies过程中出错:', error);
+      alert(`恢复cookies失败: ${error.message}`);
     }
   }
   
@@ -598,28 +663,81 @@ document.getElementById('cancelAccount').addEventListener('click', function() {
 // 加载页面初始化
 document.addEventListener('DOMContentLoaded', function() {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    const url = new URL(tabs[0].url);
-    currentDomain = url.hostname;
-    document.getElementById('currentDomain').textContent = currentDomain;
-    
-    initializeProfileSelector();
-    loadStorageData();
-    
-    // 点击标签页切换
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.addEventListener('click', function() {
-        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        
-        this.classList.add('active');
-        document.getElementById(this.dataset.tab).classList.add('active');
-        currentTab = this.dataset.tab;
-        
-        loadStorageData();
+    if (!tabs || !tabs[0] || !tabs[0].url) {
+      showErrorMessage("无法获取当前页面信息");
+      return;
+    }
+
+    try {
+      // 检查是否是chrome://、chrome-extension://等特殊URL
+      const url = tabs[0].url;
+      if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('devtools://')) {
+        showErrorMessage("无法在Chrome内部页面上使用此扩展");
+        disableControls();
+        return;
+      }
+
+      const urlObj = new URL(tabs[0].url);
+      currentDomain = urlObj.hostname;
+      document.getElementById('currentDomain').textContent = currentDomain;
+      
+      initializeProfileSelector();
+      loadStorageData();
+      
+      // 点击标签页切换
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function() {
+          document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+          
+          this.classList.add('active');
+          document.getElementById(this.dataset.tab).classList.add('active');
+          currentTab = this.dataset.tab;
+          
+          loadStorageData();
+        });
       });
-    });
+    } catch (error) {
+      console.error("初始化错误:", error);
+      showErrorMessage("加载页面时发生错误: " + error.message);
+    }
   });
 });
+
+// 显示错误信息
+function showErrorMessage(message) {
+  const container = document.querySelector('.container');
+  const errorDiv = document.createElement('div');
+  errorDiv.className = 'error-message';
+  errorDiv.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <p>${message}</p>
+  `;
+  
+  // 如果已有错误信息，先移除
+  const existingError = document.querySelector('.error-message');
+  if (existingError) {
+    existingError.remove();
+  }
+  
+  // 插入到内容顶部
+  container.insertBefore(errorDiv, container.firstChild);
+}
+
+// 禁用控件
+function disableControls() {
+  document.querySelectorAll('.tab-button, button:not(.close-btn)').forEach(btn => {
+    btn.disabled = true;
+  });
+  
+  document.querySelectorAll('input, select').forEach(input => {
+    input.disabled = true;
+  });
+}
 
 // 加载存储数据
 async function loadStorageData() {
@@ -684,16 +802,48 @@ async function loadSessionStorage() {
 
 // 加载Cookies
 async function loadCookies() {
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  
   try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (!tab || !tab.url) {
+      console.error('无法获取当前标签页信息');
+      displayCookies([]);
+      return;
+    }
+    
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      console.log('当前页面是Chrome内部页面，无法访问cookie');
+      displayCookies([]);
+      return;
+    }
+    
     // 使用 await 确保获取到cookies
     const cookies = await chrome.cookies.getAll({url: tab.url});
-    console.log('Loaded cookies:', cookies); // 调试信息
-    displayCookies(cookies);
+    console.log(`已加载${cookies.length}个cookies:`, cookies);
+    
+    // 过滤无效的cookie
+    const validCookies = cookies.filter(cookie => cookie && cookie.name);
+    if (validCookies.length !== cookies.length) {
+      console.warn(`过滤了${cookies.length - validCookies.length}个无效cookie`);
+    }
+    
+    displayCookies(validCookies);
   } catch (error) {
     console.error('获取cookies失败:', error);
-    displayCookies([]); // 失败时显示空列表
+    displayCookies([]);
+    
+    // 在Cookie面板中显示错误信息
+    const cookiesListElement = document.getElementById('cookiesList');
+    cookiesListElement.innerHTML = `
+      <div class="error-message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p>加载Cookie失败: ${error.message}</p>
+      </div>
+    `;
   }
 }
 
