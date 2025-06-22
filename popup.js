@@ -279,70 +279,70 @@ async function loadProfile(profileName) {
         
         if (compatibleCookies.length === 0) {
           console.log('没有可恢复的兼容cookie，保留当前页面cookie');
-          return;
-        }
-        
-        console.log('开始设置cookies，共', compatibleCookies.length, '个');
-        
-        // 清除现有cookies - 只在配置中有cookie时才清除
-        const currentCookies = await chrome.cookies.getAll({url: tab.url});
-        console.log('当前cookies数量:', currentCookies.length);
-        
-        for (const cookie of currentCookies) {
-          try {
-            await chrome.cookies.remove({
+          cookiesChanged = false; // 标记没有实际改变cookie
+        } else {
+          console.log('开始设置cookies，共', compatibleCookies.length, '个');
+          
+          // 清除现有cookies - 只在配置中有cookie时才清除
+          const currentCookies = await chrome.cookies.getAll({url: tab.url});
+          console.log('当前cookies数量:', currentCookies.length);
+          
+          for (const cookie of currentCookies) {
+            try {
+              await chrome.cookies.remove({
+                url: tab.url,
+                name: cookie.name
+              });
+            } catch (error) {
+              console.error(`无法删除cookie ${cookie.name}:`, error);
+            }
+          }
+          
+          // 设置新cookies，使用Promise.all提高效率
+          const setCookiePromises = compatibleCookies.map(async cookie => {
+            // 跳过无效的cookie
+            if (!cookie || !cookie.name) {
+              console.warn('跳过无效cookie:', cookie);
+              return 0;
+            }
+            
+            const cookieData = {
               url: tab.url,
-              name: cookie.name
-            });
-          } catch (error) {
-            console.error(`无法删除cookie ${cookie.name}:`, error);
-          }
-        }
-        
-        // 设置新cookies，使用Promise.all提高效率
-        const setCookiePromises = compatibleCookies.map(async cookie => {
-          // 跳过无效的cookie
-          if (!cookie || !cookie.name) {
-            console.warn('跳过无效cookie:', cookie);
-            return 0;
-          }
-          
-          const cookieData = {
-            url: tab.url,
-            name: cookie.name,
-            value: cookie.value,
-            domain: cookie.domain || undefined,
-            path: cookie.path || '/',
-            secure: !!cookie.secure,
-            httpOnly: !!cookie.httpOnly
-          };
-          
-          if (cookie.expirationDate) {
-            cookieData.expirationDate = cookie.expirationDate;
-          }
+              name: cookie.name,
+              value: cookie.value,
+              domain: cookie.domain || undefined,
+              path: cookie.path || '/',
+              secure: !!cookie.secure,
+              httpOnly: !!cookie.httpOnly
+            };
+            
+            if (cookie.expirationDate) {
+              cookieData.expirationDate = cookie.expirationDate;
+            }
+            
+            try {
+              const result = await chrome.cookies.set(cookieData);
+              return result ? 1 : 0;
+            } catch (e) {
+              console.error('设置cookie失败:', cookie.name, e);
+              return 0;
+            }
+          });
           
           try {
-            const result = await chrome.cookies.set(cookieData);
-            return result ? 1 : 0;
-          } catch (e) {
-            console.error('设置cookie失败:', cookie.name, e);
-            return 0;
+            const results = await Promise.all(setCookiePromises);
+            const successCount = results.reduce((a, b) => a + b, 0);
+            console.log(`成功设置${successCount}个cookies，共${compatibleCookies.length}个`);
+            
+            // 验证cookies是否成功设置
+            const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
+            console.log('设置后cookies数量:', verifiedCookies.length);
+          } catch (error) {
+            console.error('批量设置cookie时发生错误:', error);
           }
-        });
-        
-        try {
-          const results = await Promise.all(setCookiePromises);
-          const successCount = results.reduce((a, b) => a + b, 0);
-          console.log(`成功设置${successCount}个cookies，共${compatibleCookies.length}个`);
           
-          // 验证cookies是否成功设置
-          const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
-          console.log('设置后cookies数量:', verifiedCookies.length);
-        } catch (error) {
-          console.error('批量设置cookie时发生错误:', error);
+          cookiesChanged = true;
         }
-        
-        cookiesChanged = true;
       } else {
         console.log('配置中无cookie数据，保留当前页面的cookie');
       }
