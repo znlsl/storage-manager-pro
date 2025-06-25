@@ -5,19 +5,219 @@ let editingType = '';
 let selectedBackupId = null;
 let selectedAccountId = null;
 
+// 初始化默认配置文件
+async function initializeDefaultProfile() {
+  try {
+    // 先检查是否已有配置文件，如果有则不需要创建默认配置
+    const hasAnyProfiles = await chrome.storage.local.get(['hasInitializedDefault']);
+    
+    // 如果已经初始化过默认配置，则直接返回
+    if (hasAnyProfiles.hasInitializedDefault) {
+      console.log('已经初始化过默认配置，跳过创建');
+      return;
+    }
+    
+    // 获取当前标签页
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+      console.error('无法访问当前标签页或该标签页是Chrome内部页面');
+      return;
+    }
+    
+    // 设置当前域名
+    const url = new URL(tab.url);
+    currentDomain = url.hostname;
+    
+    // 创建默认配置数据
+    const defaultProfileData = {
+      domain: currentDomain,
+      includeLocalStorage: true,
+      includeCookies: true,
+      localStorage: {},
+      cookies: [],
+      settings: {
+        language: languageManager.getCurrentLanguage()
+      }
+    };
+    
+    // 获取当前localStorage数据
+    try {
+      const result = await chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        func: () => {
+          const items = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            items[key] = localStorage.getItem(key);
+          }
+          return items;
+        }
+      });
+      
+      if (result && result[0]) {
+        defaultProfileData.localStorage = result[0].result;
+      }
+    } catch (error) {
+      console.error('获取localStorage失败:', error);
+    }
+    
+    // 获取当前cookies数据
+    try {
+      const cookies = await chrome.cookies.getAll({url: tab.url});
+      
+      // 过滤无效的cookie
+      defaultProfileData.cookies = cookies.filter(cookie => {
+        return cookie && cookie.name && cookie.domain;
+      });
+    } catch (error) {
+      console.error('获取cookies失败:', error);
+    }
+    
+    // 保存默认配置
+    const defaultName = `${languageManager.getText('default_profile')} (${currentDomain})`;
+    await profileManager.saveProfile(defaultName, defaultProfileData, true);
+    console.log('已创建默认配置文件:', defaultName);
+    
+    // 标记已初始化默认配置
+    await chrome.storage.local.set({ hasInitializedDefault: true });
+  } catch (error) {
+    console.error('创建默认配置文件失败:', error);
+  }
+}
+
+// 更新语言UI
+function updateLanguageUI() {
+  // 更新语言按钮
+  document.getElementById('languageText').textContent = languageManager.getCurrentLanguage().toUpperCase();
+  
+  // 更新所有带有data-i18n属性的元素
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const text = languageManager.getText(key);
+    if (text) el.textContent = text;
+  });
+  
+  // 更新所有带有data-i18n-placeholder属性的元素
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    const text = languageManager.getText(key);
+    if (text) el.placeholder = text;
+  });
+  
+  // 更新所有带有data-i18n-title属性的元素
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    const text = languageManager.getText(key);
+    if (text) el.title = text;
+  });
+  
+  // 更新当前配置显示
+  updateCurrentProfileDisplay();
+  
+  // 更新所有存储项目的按钮文本
+  updateStorageItemButtons();
+  
+  // 更新自定义对话框按钮文本
+  updateDialogButtons();
+  
+  // 重新加载当前数据以更新空状态文本
+  loadStorageData();
+}
+
+// 更新存储项目按钮文本
+function updateStorageItemButtons() {
+  // 更新编辑按钮
+  document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.textContent = languageManager.getText('edit') || '编辑';
+  });
+  
+  // 更新删除按钮
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.textContent = languageManager.getText('delete') || '删除';
+  });
+  
+  // 更新显示更多/更少按钮
+  document.querySelectorAll('.expand-btn').forEach(btn => {
+    const isExpanded = btn.parentElement.classList.contains('expanded');
+    btn.title = isExpanded 
+      ? (languageManager.getText('show_less') || '显示更少')
+      : (languageManager.getText('show_more') || '显示更多');
+  });
+}
+
+// 更新对话框按钮文本
+function updateDialogButtons() {
+  const dialogCancel = document.getElementById('dialogCancel');
+  const dialogConfirm = document.getElementById('dialogConfirm');
+  
+  if (dialogCancel) {
+    dialogCancel.textContent = languageManager.getText('cancel') || '取消';
+  }
+  
+  if (dialogConfirm) {
+    dialogConfirm.textContent = languageManager.getText('ok') || '确定';
+  }
+}
+
+// 语言切换事件
+document.getElementById('switchLanguage').addEventListener('click', async function() {
+  try {
+    const currentLang = languageManager.getCurrentLanguage();
+    const newLang = currentLang === 'zh' ? 'en' : 'zh';
+    
+    // 切换语言
+    await languageManager.setLanguage(newLang);
+    
+    // 更新UI
+    updateLanguageUI();
+    
+    // 更新当前配置
+    await updateCurrentProfileAfterLanguageChange(newLang);
+    
+    console.log(`语言已切换为: ${newLang}`);
+  } catch (error) {
+    console.error('切换语言时出错:', error);
+  }
+});
+
+// 添加语言变更后更新配置文件的方法
+async function updateCurrentProfileAfterLanguageChange(language) {
+  // 如果有当前配置，更新其中的语言设置
+  const currentProfileName = profileManager.getCurrentProfileName();
+  if (currentProfileName) {
+    const profile = profileManager.profiles[currentProfileName];
+    if (profile && profile.data) {
+      if (!profile.data.settings) {
+        profile.data.settings = {};
+      }
+      profile.data.settings.language = language;
+      await profileManager.saveProfiles();
+    }
+  }
+}
+
 // 初始化配置文件选择器
 async function initializeProfileSelector() {
   const profiles = profileManager.getProfileList();
   const profileSelect = document.getElementById('profileSelect');
   const currentProfileName = profileManager.getCurrentProfileName();
   
-  profileSelect.innerHTML = '<option value="">选择配置文件...</option>';
+  // 设置选项的文本为多语言支持的文本
+  const selectText = languageManager.getText('select_profile');
+  profileSelect.innerHTML = `<option value="">${selectText}</option>`;
+  
   profiles.forEach(profile => {
     const option = document.createElement('option');
     option.value = profile.name;
     option.textContent = profile.name;
     profileSelect.appendChild(option);
   });
+  
+  // 如果有当前配置，设置下拉框的值
+  if (currentProfileName) {
+    profileSelect.value = currentProfileName;
+  }
   
   // 显示当前配置信息
   const currentProfileInfo = document.createElement('div');
@@ -26,32 +226,52 @@ async function initializeProfileSelector() {
   
   // 插入到配置选择器下方
   const profileSelector = document.querySelector('.profile-selector');
-  if (!document.getElementById('currentProfileInfo')) {
-    profileSelector.insertAdjacentElement('afterend', currentProfileInfo);
-  } else {
-    currentProfileInfo.parentNode.replaceChild(currentProfileInfo, document.getElementById('currentProfileInfo'));
+  if (profileSelector) {
+    const existingInfo = document.getElementById('currentProfileInfo');
+    if (!existingInfo) {
+      profileSelector.insertAdjacentElement('afterend', currentProfileInfo);
+    } else if (existingInfo.parentNode) {
+      existingInfo.parentNode.replaceChild(currentProfileInfo, existingInfo);
+    } else {
+      // 如果现有元素没有父节点，可能已经从DOM中移除，直接插入新元素
+      profileSelector.insertAdjacentElement('afterend', currentProfileInfo);
+    }
   }
   
   // 更新当前配置显示
   updateCurrentProfileDisplay();
 }
 
-// 更新当前配置显示
+  // 更新当前配置显示
 function updateCurrentProfileDisplay() {
   const currentProfileInfo = document.getElementById('currentProfileInfo');
+  
+  // 如果元素不存在，则返回
+  if (!currentProfileInfo) {
+    return;
+  }
+  
   const currentProfileName = profileManager.getCurrentProfileName();
   
-  if (currentProfileName && currentProfileInfo) {
-    currentProfileInfo.innerHTML = `<span class="current-profile-label">当前配置: </span><span class="current-profile-name">${escapeHtml(currentProfileName)}</span>`;
-    currentProfileInfo.style.display = 'block';
-  } else if (currentProfileInfo) {
+  if (currentProfileName) {
+    try {
+      const labelText = languageManager.getText('current_profile');
+      currentProfileInfo.innerHTML = `<span class="current-profile-label">${labelText} </span><span class="current-profile-name">${escapeHtml(currentProfileName)}</span>`;
+      currentProfileInfo.style.display = 'block';
+    } catch (error) {
+      console.error('更新配置显示错误:', error);
+      // 降级处理，不使用翻译
+      currentProfileInfo.innerHTML = `<span class="current-profile-label">当前配置: </span><span class="current-profile-name">${escapeHtml(currentProfileName)}</span>`;
+      currentProfileInfo.style.display = 'block';
+    }
+  } else {
     currentProfileInfo.style.display = 'none';
   }
 }
 
 // 保存当前配置为配置文件
 document.getElementById('saveProfile').addEventListener('click', function() {
-  document.getElementById('profileModal').classList.add('show');
+  document.getElementById('saveProfileModal').classList.add('show');
 });
 
 // 管理配置文件
@@ -60,25 +280,48 @@ document.getElementById('manageProfiles').addEventListener('click', function() {
   loadProfileList();
 });
 
+// 关闭保存配置文件弹窗
+document.getElementById('closeSaveProfileModal').addEventListener('click', function() {
+  document.getElementById('saveProfileModal').classList.remove('show');
+});
+
+// 取消保存配置文件
+document.getElementById('cancelSaveProfile').addEventListener('click', function() {
+  document.getElementById('saveProfileModal').classList.remove('show');
+});
+
+// 配置文件选择器变更事件
+document.getElementById('profileSelect').addEventListener('change', async function() {
+  const selectedProfile = this.value;
+  if (selectedProfile) {
+    await loadProfile(selectedProfile);
+  }
+});
+
 // 加载配置文件列表
 function loadProfileList() {
   const profiles = profileManager.getProfileList();
   const profileList = document.getElementById('profileList');
   
   if (profiles.length === 0) {
-    profileList.innerHTML = '<div class="empty-state">暂无配置文件</div>';
+    const emptyText = languageManager.getText('no_profiles');
+    profileList.innerHTML = `<div class="empty-state">${emptyText}</div>`;
     return;
   }
+  
+  const loadText = languageManager.getText('load');
+  const deleteText = languageManager.getText('delete');
+  const createdText = languageManager.getText('created_time');
   
   profileList.innerHTML = profiles.map(profile => `
     <div class="profile-item">
       <div class="profile-info">
         <div class="profile-name">${escapeHtml(profile.name)}</div>
-        <div class="profile-date">创建时间: ${new Date(profile.timestamp).toLocaleString()}</div>
+        <div class="profile-date">${createdText} ${new Date(profile.timestamp).toLocaleString()}</div>
       </div>
       <div class="profile-actions">
-        <button class="profile-action-btn load-profile-btn" data-name="${escapeHtml(profile.name)}">加载</button>
-        <button class="profile-action-btn delete-profile-btn" data-name="${escapeHtml(profile.name)}">删除</button>
+        <button class="profile-action-btn load-profile-btn" data-name="${escapeHtml(profile.name)}">${loadText}</button>
+        <button class="profile-action-btn delete-profile-btn" data-name="${escapeHtml(profile.name)}">${deleteText}</button>
       </div>
     </div>
   `).join('');
@@ -95,10 +338,12 @@ function loadProfileList() {
   profileList.querySelectorAll('.delete-profile-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
       const profileName = this.dataset.name;
-      if (confirm(`确定要删除配置文件 "${profileName}" 吗？`)) {
-        await profileManager.deleteProfile(profileName);
-        loadProfileList();
-      }
+      showConfirm(languageManager.getText('confirm_delete') + ' "' + profileName + '" ?', '确认删除', async function(confirmed) {
+        if (confirmed) {
+          await profileManager.deleteProfile(profileName);
+          loadProfileList();
+        }
+      });
     });
   });
 }
@@ -106,44 +351,79 @@ function loadProfileList() {
 // 保存新配置文件
 document.getElementById('saveNewProfile').addEventListener('click', async function() {
   const profileName = document.getElementById('profileName').value.trim();
+  
   if (!profileName) {
-    alert('请输入配置文件名称');
+    showAlert(languageManager.getText('please_enter_profile_name') || '请输入配置文件名称');
     return;
   }
   
   const includeLocalStorage = document.getElementById('includeLocalStorage').checked;
   const includeCookies = document.getElementById('includeCookies').checked;
   
+  if (!includeLocalStorage && !includeCookies) {
+    showAlert(languageManager.getText('please_select_content') || '请至少选择一种内容');
+    return;
+  }
+  
   // 检查是否已存在同名配置
   const profiles = profileManager.getProfileList();
   const existingProfile = profiles.find(p => p.name === profileName);
-  let shouldOverwrite = false;
   
   if (existingProfile) {
-    shouldOverwrite = confirm(`配置文件 "${profileName}" 已存在，是否覆盖？`);
-    if (!shouldOverwrite) {
-      return;
+    // 显示确认覆盖对话框
+    const confirmMessage = languageManager.getText('confirm_save_profile') || `配置文件 "{name}" 已存在，是否覆盖？`;
+    const confirmTitle = languageManager.getText('overwrite_confirm') || '确认覆盖';
+    
+    showConfirm(
+      confirmMessage.replace('{name}', profileName),
+      confirmTitle,
+      async function(confirmed) {
+        if (confirmed) {
+          await saveProfileData(profileName, includeLocalStorage, includeCookies, true);
+          document.getElementById('saveProfileModal').classList.remove('show');
+        }
+      }
+    );
+  } else {
+    // 如果没有同名配置，直接保存
+    const success = await saveProfileData(profileName, includeLocalStorage, includeCookies);
+    if (success) {
+      document.getElementById('saveProfileModal').classList.remove('show');
     }
   }
-  
-  const profileData = {
-    domain: currentDomain,
-    includeLocalStorage: includeLocalStorage,
-    includeCookies: includeCookies,
-    localStorage: {},
-    cookies: []
-  };
-  
+});
+
+// 提取保存配置文件的逻辑到单独的函数
+async function saveProfileData(profileName, includeLocalStorage, includeCookies, overwrite = false) {
+  // 获取当前标签页
   try {
-    // 获取当前标签页
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     
     if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
-      alert('无法访问当前标签页或该标签页是Chrome内部页面');
+      console.error('无法访问当前标签页或该标签页是Chrome内部页面');
+      const errorMessage = languageManager.getText('cannot_access_tab') || '无法访问当前标签页或该标签页是Chrome内部页面';
+      const errorTitle = languageManager.getText('error') || '错误';
+      showAlert(errorMessage, errorTitle);
       return;
     }
     
-    // 获取当前数据
+    // 设置当前域名
+    const url = new URL(tab.url);
+    currentDomain = url.hostname;
+    
+    // 创建配置数据
+    const profileData = {
+      domain: currentDomain,
+      includeLocalStorage: includeLocalStorage,
+      includeCookies: includeCookies,
+      localStorage: {},
+      cookies: [],
+      settings: {
+        language: languageManager.getCurrentLanguage()
+      }
+    };
+    
+    // 获取当前localStorage数据
     if (includeLocalStorage) {
       try {
         const result = await chrome.scripting.executeScript({
@@ -163,224 +443,250 @@ document.getElementById('saveNewProfile').addEventListener('click', async functi
         }
       } catch (error) {
         console.error('获取localStorage失败:', error);
-        alert(`获取localStorage失败: ${error.message}`);
       }
     }
     
+    // 获取当前cookies数据
     if (includeCookies) {
       try {
         const cookies = await chrome.cookies.getAll({url: tab.url});
-        
-        // 过滤无效的cookie，避免后续问题
-        profileData.cookies = cookies.filter(cookie => {
-          return cookie && cookie.name && cookie.domain;
-        });
-        
-        console.log(`已保存${profileData.cookies.length}个有效cookies`);
+        profileData.cookies = cookies;
       } catch (error) {
         console.error('获取cookies失败:', error);
-        alert(`获取cookies失败: ${error.message}`);
       }
     }
     
-    // 保存配置，支持覆盖
-    const saved = await profileManager.saveProfile(profileName, profileData, shouldOverwrite);
-    
-    if (saved) {
-      document.getElementById('profileModal').classList.remove('show');
-      document.getElementById('profileName').value = '';
-      initializeProfileSelector();
-      alert(`配置文件 "${profileName}" 已保存`);
-    } else {
-      alert(`保存配置文件 "${profileName}" 失败`);
+    // 保存配置文件
+    try {
+      await profileManager.saveProfile(profileName, profileData, overwrite);
+      
+      // 重新加载配置文件列表
+      await initializeProfileSelector();
+      
+      // 更新当前配置显示
+      updateCurrentProfileDisplay();
+      
+      // 显示成功消息
+      const successMessage = languageManager.getText('profile_saved') || '配置已保存';
+      const successTitle = languageManager.getText('success') || '操作成功';
+      showAlert(successMessage, successTitle);
+      
+      return true;
+    } catch (error) {
+      console.error('保存配置文件失败:', error);
+      const errorMessage = languageManager.getText('profile_save_failed') || '配置保存失败';
+      const errorTitle = languageManager.getText('error') || '错误';
+      showAlert(`${errorMessage}: ${error.message}`, errorTitle);
+      return false;
     }
   } catch (error) {
-    console.error('保存配置文件过程中出错:', error);
-    alert(`保存配置文件出错: ${error.message}`);
+    console.error('保存配置数据时出错:', error);
+    const errorMessage = languageManager.getText('profile_save_failed') || '配置保存失败';
+    const errorTitle = languageManager.getText('error') || '错误';
+    showAlert(`${errorMessage}: ${error.message}`, errorTitle);
+    return false;
   }
-});
+}
 
 // 加载配置文件
 async function loadProfile(profileName) {
   const profile = await profileManager.loadProfile(profileName);
-  if (!profile || !profile.data) {
-    alert('配置文件加载失败');
+  
+  if (!profile) {
+    showErrorMessage('无法加载配置文件: ' + profileName);
     return;
   }
   
-  const data = profile.data;
-  let localStorageChanged = false;
-  let cookiesChanged = false;
-  
-  // 恢复 LocalStorage
-  if (data.includeLocalStorage && data.localStorage) {
-    try {
-      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-      
-      if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
-        console.error('无法访问当前标签页或该标签页是Chrome内部页面');
-        return;
-      }
-      
-      await chrome.scripting.executeScript({
-        target: {tabId: tab.id},
-        func: (items) => {
-          localStorage.clear();
-          Object.entries(items).forEach(([key, value]) => {
-            localStorage.setItem(key, value);
-          });
-        },
-        args: [data.localStorage]
-      });
-      localStorageChanged = true;
-    } catch (error) {
-      console.error('恢复localStorage失败:', error);
-      alert(`恢复localStorage失败: ${error.message}`);
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+      console.error('无法访问当前标签页或该标签页是Chrome内部页面');
+      return;
     }
-  }
-  
-  // 恢复 Cookies
-  if (data.includeCookies) {
-    try {
-      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-      
-      if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
-        console.error('无法访问当前标签页或该标签页是Chrome内部页面');
-        return;
+    
+    // 加载配置文件中的语言设置
+    if (profile.data.settings && profile.data.settings.language) {
+      const savedLanguage = profile.data.settings.language;
+      if (savedLanguage !== languageManager.getCurrentLanguage()) {
+        await languageManager.switchLanguage(savedLanguage);
+        updateLanguageUI();
+        languageManager.translatePage();
       }
-      
-      console.log('处理配置中的cookies:', data.cookies);
-      
-      // 只有当配置中有cookie时才进行处理
-      if (data.cookies && data.cookies.length > 0) {
-        // 获取当前URL对象和顶级域名
-        const urlObj = new URL(tab.url);
-        const currentDomain = urlObj.hostname;
-        const currentTopDomain = extractTopLevelDomain(currentDomain);
-        
-        console.log(`当前域名: ${currentDomain}, 顶级域名: ${currentTopDomain}`);
-        
-        // 筛选出与当前顶级域名匹配的cookie
-        const compatibleCookies = data.cookies.filter(cookie => {
-          if (!cookie || !cookie.domain) return false;
-          
-          const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
-          const cookieTopDomain = extractTopLevelDomain(cookieDomain);
-          
-          // 检查是否是同一个顶级域名
-          const isCompatible = cookieTopDomain === currentTopDomain;
-          if (!isCompatible) {
-            console.log(`跳过不匹配的cookie: ${cookie.name}, 域名: ${cookieDomain}, 顶级域名: ${cookieTopDomain}`);
-          }
-          return isCompatible;
+    }
+    
+    disableControls();
+    
+    // 加载配置文件中的数据
+    const data = profile.data;
+    let localStorageChanged = false;
+    let cookiesChanged = false;
+    
+    // 恢复 LocalStorage
+    if (data.includeLocalStorage && data.localStorage) {
+      try {
+        await chrome.scripting.executeScript({
+          target: {tabId: tab.id},
+          func: (items) => {
+            localStorage.clear();
+            Object.entries(items).forEach(([key, value]) => {
+              localStorage.setItem(key, value);
+            });
+          },
+          args: [data.localStorage]
         });
+        localStorageChanged = true;
+      } catch (error) {
+        console.error('恢复localStorage失败:', error);
+        showAlert(`恢复localStorage失败: ${error.message}`, '恢复失败');
+      }
+    }
+    
+    // 恢复 Cookies
+    if (data.includeCookies) {
+      try {
+        console.log('处理配置中的cookies:', data.cookies);
         
-        console.log(`总共${data.cookies.length}个cookie, 与当前域名兼容的有${compatibleCookies.length}个`);
-        
-        if (compatibleCookies.length === 0) {
-          console.log('没有可恢复的兼容cookie，保留当前页面cookie');
-          cookiesChanged = false; // 标记没有实际改变cookie
-        } else {
-          console.log('开始设置cookies，共', compatibleCookies.length, '个');
+        // 只有当配置中有cookie时才进行处理
+        if (data.cookies && data.cookies.length > 0) {
+          // 获取当前URL对象和顶级域名
+          const urlObj = new URL(tab.url);
+          const currentDomain = urlObj.hostname;
+          const currentTopDomain = extractTopLevelDomain(currentDomain);
           
-          // 清除现有cookies - 只在配置中有cookie时才清除
-          const currentCookies = await chrome.cookies.getAll({url: tab.url});
-          console.log('当前cookies数量:', currentCookies.length);
+          console.log(`当前域名: ${currentDomain}, 顶级域名: ${currentTopDomain}`);
           
-          for (const cookie of currentCookies) {
-            try {
-              await chrome.cookies.remove({
-                url: tab.url,
-                name: cookie.name
-              });
-            } catch (error) {
-              console.error(`无法删除cookie ${cookie.name}:`, error);
-            }
-          }
-          
-          // 设置新cookies，使用Promise.all提高效率
-          const setCookiePromises = compatibleCookies.map(async cookie => {
-            // 跳过无效的cookie
-            if (!cookie || !cookie.name) {
-              console.warn('跳过无效cookie:', cookie);
-              return 0;
-            }
+          // 筛选出与当前顶级域名匹配的cookie
+          const compatibleCookies = data.cookies.filter(cookie => {
+            if (!cookie || !cookie.domain) return false;
             
-            const cookieData = {
-              url: tab.url,
-              name: cookie.name,
-              value: cookie.value,
-              domain: cookie.domain || undefined,
-              path: cookie.path || '/',
-              secure: !!cookie.secure,
-              httpOnly: !!cookie.httpOnly
-            };
+            const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+            const cookieTopDomain = extractTopLevelDomain(cookieDomain);
             
-            if (cookie.expirationDate) {
-              cookieData.expirationDate = cookie.expirationDate;
+            // 检查是否是同一个顶级域名
+            const isCompatible = cookieTopDomain === currentTopDomain;
+            if (!isCompatible) {
+              console.log(`跳过不匹配的cookie: ${cookie.name}, 域名: ${cookieDomain}, 顶级域名: ${cookieTopDomain}`);
             }
-            
-            try {
-              const result = await chrome.cookies.set(cookieData);
-              return result ? 1 : 0;
-            } catch (e) {
-              console.error('设置cookie失败:', cookie.name, e);
-              return 0;
-            }
+            return isCompatible;
           });
           
-          try {
-            const results = await Promise.all(setCookiePromises);
-            const successCount = results.reduce((a, b) => a + b, 0);
-            console.log(`成功设置${successCount}个cookies，共${compatibleCookies.length}个`);
-            
-            // 验证cookies是否成功设置
-            const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
-            console.log('设置后cookies数量:', verifiedCookies.length);
-          } catch (error) {
-            console.error('批量设置cookie时发生错误:', error);
-          }
+          console.log(`总共${data.cookies.length}个cookie, 与当前域名兼容的有${compatibleCookies.length}个`);
           
-          cookiesChanged = true;
+          if (compatibleCookies.length === 0) {
+            console.log('没有可恢复的兼容cookie，保留当前页面cookie');
+            cookiesChanged = false; // 标记没有实际改变cookie
+          } else {
+            console.log('开始设置cookies，共', compatibleCookies.length, '个');
+            
+            // 清除现有cookies - 只在配置中有cookie时才清除
+            const currentCookies = await chrome.cookies.getAll({url: tab.url});
+            console.log('当前cookies数量:', currentCookies.length);
+            
+            for (const cookie of currentCookies) {
+              try {
+                await chrome.cookies.remove({
+                  url: tab.url,
+                  name: cookie.name
+                });
+              } catch (error) {
+                console.error(`无法删除cookie ${cookie.name}:`, error);
+              }
+            }
+            
+            // 设置新cookies，使用Promise.all提高效率
+            const setCookiePromises = compatibleCookies.map(async cookie => {
+              // 跳过无效的cookie
+              if (!cookie || !cookie.name) {
+                console.warn('跳过无效cookie:', cookie);
+                return 0;
+              }
+              
+              const cookieData = {
+                url: tab.url,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain || undefined,
+                path: cookie.path || '/',
+                secure: !!cookie.secure,
+                httpOnly: !!cookie.httpOnly
+              };
+              
+              if (cookie.expirationDate) {
+                cookieData.expirationDate = cookie.expirationDate;
+              }
+              
+              try {
+                const result = await chrome.cookies.set(cookieData);
+                return result ? 1 : 0;
+              } catch (e) {
+                console.error('设置cookie失败:', cookie.name, e);
+                return 0;
+              }
+            });
+            
+            try {
+              const results = await Promise.all(setCookiePromises);
+              const successCount = results.reduce((a, b) => a + b, 0);
+              console.log(`成功设置${successCount}个cookies，共${compatibleCookies.length}个`);
+              
+              // 验证cookies是否成功设置
+              const verifiedCookies = await chrome.cookies.getAll({url: tab.url});
+              console.log('设置后cookies数量:', verifiedCookies.length);
+            } catch (error) {
+              console.error('批量设置cookie时发生错误:', error);
+            }
+            
+            cookiesChanged = true;
+          }
+        } else {
+          console.log('配置中无cookie数据，保留当前页面的cookie');
         }
-      } else {
-        console.log('配置中无cookie数据，保留当前页面的cookie');
+      } catch (error) {
+        console.error('恢复cookies过程中出错:', error);
+        showAlert(`恢复cookies失败: ${error.message}`, '恢复失败');
       }
-    } catch (error) {
-      console.error('恢复cookies过程中出错:', error);
-      alert(`恢复cookies失败: ${error.message}`);
     }
+    
+    // 等待一小段时间，确保cookies设置完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // 根据当前标签页更新显示
+    switch (currentTab) {
+      case 'localStorage':
+        if (localStorageChanged) {
+          await loadLocalStorage();
+        }
+        break;
+      case 'sessionStorage':
+        await loadSessionStorage();
+        break;
+      case 'cookies':
+        // 无论如何都刷新cookie显示，以确保数据是最新的
+        await loadCookies();
+        break;
+      case 'indexedDB':
+        await loadIndexedDB();
+        break;
+    }
+    
+    // 如果当前不在cookies标签页，但cookies已更改，则异步加载cookies数据
+    if (currentTab !== 'cookies' && cookiesChanged) {
+      await loadCookies(); // 无论如何都预加载cookies数据
+    }
+    
+    // 在操作完成后恢复控件
+    enableControls();
+    
+    updateCurrentProfileDisplay();
+    // 使用自定义对话框
+    showAlert(`已加载配置文件: ${profileName}`, '加载成功');
+  } catch (error) {
+    console.error('加载配置文件时出错:', error);
+    // 恢复控件
+    enableControls();
+    showErrorMessage('加载配置文件时发生错误: ' + error.message);
   }
-  
-  // 等待一小段时间，确保cookies设置完成
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // 根据当前标签页更新显示
-  switch (currentTab) {
-    case 'localStorage':
-      if (localStorageChanged) {
-        await loadLocalStorage();
-      }
-      break;
-    case 'sessionStorage':
-      await loadSessionStorage();
-      break;
-    case 'cookies':
-      // 无论如何都刷新cookie显示，以确保数据是最新的
-      await loadCookies();
-      break;
-    case 'indexedDB':
-      await loadIndexedDB();
-      break;
-  }
-  
-  // 如果当前不在cookies标签页，但cookies已更改，则异步加载cookies数据
-  if (currentTab !== 'cookies' && cookiesChanged) {
-    await loadCookies(); // 无论如何都预加载cookies数据
-  }
-  
-  updateCurrentProfileDisplay();
-  alert(`已加载配置文件: ${profileName}`);
 }
 
 // 配置文件选择器变化事件
@@ -411,118 +717,109 @@ document.getElementById('restoreLocalStorage').addEventListener('click', functio
 
 // 加载备份列表
 function loadBackupList() {
-  const backups = localStorageBackupManager.getBackupList(currentDomain);
   const backupList = document.getElementById('backupList');
+  const backups = localStorageBackupManager.getBackupList(currentDomain);
   
   if (backups.length === 0) {
-    backupList.innerHTML = '<div class="empty-backup">暂无备份</div>';
+    const emptyText = languageManager.getText('no_backups') || '暂无备份';
+    backupList.innerHTML = `<div class="empty-state">${emptyText}</div>`;
     return;
   }
   
-  backupList.innerHTML = backups.sort((a, b) => b.timestamp - a.timestamp).map(backup => `
-    <div class="backup-item" data-id="${backup.id}">
-      <div class="backup-name">${escapeHtml(backup.name)}</div>
-      ${backup.description ? `<div class="backup-description">${escapeHtml(backup.description)}</div>` : ''}
-      <div class="backup-meta">
-        <span>创建时间: ${new Date(backup.timestamp).toLocaleString()}</span>
-        <span>项目数: ${backup.itemCount}</span>
-      </div>
-      <div class="backup-actions">
-        <button class="backup-action-btn delete-backup-btn" data-id="${backup.id}">删除</button>
-      </div>
-    </div>
-  `).join('');
+  const itemsText = languageManager.getText('items') || '项目';
   
-  // 选择备份
+  backupList.innerHTML = backups.map(backup => {
+    const date = new Date(backup.timestamp).toLocaleString();
+    const items = backup.itemCount || Object.keys(backup.data).length;
+    
+    return `
+      <div class="backup-item${selectedBackupId === backup.id ? ' selected' : ''}" data-id="${backup.id}">
+        <div class="backup-info">
+          <div class="backup-name">${escapeHtml(backup.name)}</div>
+          <div class="backup-date">${date}</div>
+          <div class="backup-meta">${items} ${itemsText}</div>
+          ${backup.description ? `<div class="backup-description">${escapeHtml(backup.description)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // 添加点击事件监听
   backupList.querySelectorAll('.backup-item').forEach(item => {
     item.addEventListener('click', function() {
+      // 移除其他项的选中状态
       backupList.querySelectorAll('.backup-item').forEach(i => i.classList.remove('selected'));
+      // 添加当前项的选中状态
       this.classList.add('selected');
       selectedBackupId = this.dataset.id;
     });
-  });
-  
-  // 删除备份
-  backupList.querySelectorAll('.delete-backup-btn').forEach(btn => {
-    btn.addEventListener('click', async function(e) {
-      e.stopPropagation();
-      const backupId = this.dataset.id;
-      if (confirm('确定要删除这个备份吗？')) {
-        await localStorageBackupManager.deleteBackup(currentDomain, backupId);
-        loadBackupList();
-      }
+    
+    // 添加双击直接加载事件
+    item.addEventListener('dblclick', async function() {
+      selectedBackupId = this.dataset.id;
+      await restoreSelectedBackup();
+      document.getElementById('backupModal').classList.remove('show');
     });
   });
 }
 
-// 确认备份/恢复
-document.getElementById('confirmBackup').addEventListener('click', async function() {
-  const isBackup = document.getElementById('backupSection').style.display !== 'none';
+// 添加恢复所选备份的函数
+async function restoreSelectedBackup() {
+  if (!selectedBackupId) {
+    showAlert(languageManager.getText('please_select_backup') || '请选择要恢复的备份');
+    return;
+  }
   
-  if (isBackup) {
-    // 创建备份
-    const backupName = document.getElementById('backupName').value.trim();
-    if (!backupName) {
-      alert('请输入备份名称');
+  try {
+    const data = await localStorageBackupManager.restoreBackup(currentDomain, selectedBackupId);
+    
+    if (!data) {
+      showAlert(languageManager.getText('backup_not_found') || '找不到备份数据');
       return;
     }
     
-    const backupDescription = document.getElementById('backupDescription').value.trim();
-    
-    // 获取当前 LocalStorage 数据
+    // 获取当前标签页
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    const result = await chrome.scripting.executeScript({
+    
+    if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+      showAlert(languageManager.getText('cannot_access_tab') || '无法访问当前标签页或该标签页是Chrome内部页面');
+      return;
+    }
+    
+    // 恢复localStorage数据
+    await chrome.scripting.executeScript({
       target: {tabId: tab.id},
-      func: () => {
-        const items = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          items[key] = localStorage.getItem(key);
+      func: (data) => {
+        // 先清空现有数据
+        localStorage.clear();
+        
+        // 恢复备份数据
+        for (const key in data) {
+          localStorage.setItem(key, data[key]);
         }
-        return items;
-      }
+        
+        return localStorage.length;
+      },
+      args: [data]
     });
     
-    if (result && result[0]) {
-      await localStorageBackupManager.createBackup(currentDomain, backupName, backupDescription, result[0].result);
-      alert('备份创建成功！');
-      document.getElementById('backupModal').classList.remove('show');
-      document.getElementById('backupName').value = '';
-      document.getElementById('backupDescription').value = '';
-    }
-  } else {
-    // 恢复备份
-    if (!selectedBackupId) {
-      alert('请选择要恢复的备份');
-      return;
-    }
+    // 更新UI
+    await loadLocalStorage();
     
-    if (confirm('恢复备份将覆盖当前的LocalStorage数据，确定要继续吗？')) {
-      const backupData = await localStorageBackupManager.restoreBackup(currentDomain, selectedBackupId);
-      if (backupData) {
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        await chrome.scripting.executeScript({
-          target: {tabId: tab.id},
-          func: (items) => {
-            localStorage.clear();
-            Object.entries(items).forEach(([key, value]) => {
-              localStorage.setItem(key, value);
-            });
-          },
-          args: [backupData]
-        });
-        
-        alert('备份恢复成功！');
-        document.getElementById('backupModal').classList.remove('show');
-        loadLocalStorage();
-      }
-    }
+    // 更新当前配置
+    await updateCurrentProfileAfterLocalStorageChange();
+    
+    showAlert(languageManager.getText('backup_restored') || '备份已恢复', '恢复成功');
+  } catch (error) {
+    console.error('恢复备份失败:', error);
+    showAlert(languageManager.getText('restore_failed') || '恢复备份失败: ' + error.message, '恢复失败');
   }
-});
+}
 
 // Cookie 账户保存功能
 document.getElementById('saveCookieProfile').addEventListener('click', function() {
-  document.getElementById('accountModalTitle').textContent = '保存Cookie账户';
+  const title = languageManager.getText('save_cookie_account') || '保存Cookie账户';
+  document.getElementById('accountModalTitle').textContent = title;
   document.getElementById('saveAccountSection').style.display = 'block';
   document.getElementById('switchAccountSection').style.display = 'none';
   document.getElementById('accountModal').classList.add('show');
@@ -530,7 +827,8 @@ document.getElementById('saveCookieProfile').addEventListener('click', function(
 
 // Cookie 账户切换功能
 document.getElementById('switchCookieProfile').addEventListener('click', function() {
-  document.getElementById('accountModalTitle').textContent = '切换Cookie账户';
+  const title = languageManager.getText('switch_cookie_account') || '切换Cookie账户';
+  document.getElementById('accountModalTitle').textContent = title;
   document.getElementById('saveAccountSection').style.display = 'none';
   document.getElementById('switchAccountSection').style.display = 'block';
   document.getElementById('accountModal').classList.add('show');
@@ -543,20 +841,25 @@ function loadAccountList() {
   const accountList = document.getElementById('accountList');
   
   if (accounts.length === 0) {
-    accountList.innerHTML = '<div class="empty-backup">暂无账户</div>';
+    const emptyText = languageManager.getText('no_accounts') || '暂无账户';
+    accountList.innerHTML = `<div class="empty-backup">${emptyText}</div>`;
     return;
   }
+  
+  const savedTimeText = languageManager.getText('saved_time') || '保存时间';
+  const cookieCountText = languageManager.getText('cookie_count') || 'Cookie数';
+  const deleteText = languageManager.getText('delete') || '删除';
   
   accountList.innerHTML = accounts.sort((a, b) => b.timestamp - a.timestamp).map(account => `
     <div class="account-item" data-id="${account.id}">
       <div class="account-name">${escapeHtml(account.name)}</div>
       ${account.description ? `<div class="account-description">${escapeHtml(account.description)}</div>` : ''}
       <div class="account-meta">
-        <span>保存时间: ${new Date(account.timestamp).toLocaleString()}</span>
-        <span>Cookie数: ${account.cookieCount}</span>
+        <span>${savedTimeText}: ${new Date(account.timestamp).toLocaleString()}</span>
+        <span>${cookieCountText}: ${account.cookieCount}</span>
       </div>
       <div class="account-actions">
-        <button class="account-action-btn delete-account-btn" data-id="${account.id}">删除</button>
+        <button class="account-action-btn delete-account-btn" data-id="${account.id}">${deleteText}</button>
       </div>
     </div>
   `).join('');
@@ -575,10 +878,16 @@ function loadAccountList() {
     btn.addEventListener('click', async function(e) {
       e.stopPropagation();
       const accountId = this.dataset.id;
-      if (confirm('确定要删除这个账户吗？')) {
-        await cookieAccountManager.deleteAccount(currentDomain, accountId);
-        loadAccountList();
-      }
+      
+      const confirmMessage = languageManager.getText('confirm_delete_account') || '确定要删除这个账户吗？';
+      const confirmTitle = languageManager.getText('confirm_title') || '确认删除';
+      
+      showConfirm(confirmMessage, confirmTitle, async function(confirmed) {
+        if (confirmed) {
+          await cookieAccountManager.deleteAccount(currentDomain, accountId);
+          loadAccountList();
+        }
+      });
     });
   });
 }
@@ -591,7 +900,9 @@ document.getElementById('confirmAccount').addEventListener('click', async functi
     // 保存账户
     const accountName = document.getElementById('accountName').value.trim();
     if (!accountName) {
-      alert('请输入账户名称');
+      const errorMessage = languageManager.getText('please_enter_account_name') || '请输入账户名称';
+      const errorTitle = languageManager.getText('error') || '错误';
+      showAlert(errorMessage, errorTitle);
       return;
     }
     
@@ -602,61 +913,88 @@ document.getElementById('confirmAccount').addEventListener('click', async functi
     const cookies = await chrome.cookies.getAll({url: tab.url});
     
     await cookieAccountManager.saveAccount(currentDomain, accountName, accountDescription, cookies);
-    alert(`账户 "${accountName}" 已保存！`);
+    
+    const successMessage = languageManager.getText('account_saved') || `账户 "${accountName}" 已保存！`;
+    const successMessage2 = successMessage.replace('{name}', accountName);
+    const successTitle = languageManager.getText('save_success') || '保存成功';
+    
+    showAlert(successMessage2, successTitle);
     document.getElementById('accountModal').classList.remove('show');
     document.getElementById('accountName').value = '';
     document.getElementById('accountDescription').value = '';
   } else {
     // 切换账户
     if (!selectedAccountId) {
-      alert('请选择要切换的账户');
+      const errorMessage = languageManager.getText('please_select_account') || '请选择要切换的账户';
+      const errorTitle = languageManager.getText('error') || '错误';
+      showAlert(errorMessage, errorTitle);
       return;
     }
     
-    if (confirm('切换账户将替换当前的所有Cookies，确定要继续吗？')) {
-      const accountCookies = await cookieAccountManager.loadAccount(currentDomain, selectedAccountId);
-      if (accountCookies) {
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        
-        // 清除现有cookies
-        const currentCookies = await chrome.cookies.getAll({url: tab.url});
-        for (const cookie of currentCookies) {
-          await chrome.cookies.remove({
-            url: tab.url,
-            name: cookie.name
-          });
-        }
-        
-        // 设置新cookies
-        for (const cookie of accountCookies) {
-          const cookieData = {
-            url: tab.url,
-            name: cookie.name,
-            value: cookie.value,
-            domain: cookie.domain,
-            path: cookie.path,
-            secure: cookie.secure,
-            httpOnly: cookie.httpOnly
-          };
+    const confirmMessage = languageManager.getText('confirm_switch_account') || '切换账户将替换当前的所有Cookies，确定要继续吗？';
+    const confirmTitle = languageManager.getText('confirm') || '确认';
+    
+    showConfirm(confirmMessage, confirmTitle, async function(confirmed) {
+      if (confirmed) {
+        const accountCookies = await cookieAccountManager.loadAccount(currentDomain, selectedAccountId);
+        if (accountCookies) {
+          const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+          const url = new URL(tab.url);
           
-          if (cookie.expirationDate) {
-            cookieData.expirationDate = cookie.expirationDate;
+          // 先删除所有当前的cookies
+          const currentCookies = await chrome.cookies.getAll({url: tab.url});
+          for (const cookie of currentCookies) {
+            await chrome.cookies.remove({
+              url: tab.url,
+              name: cookie.name
+            });
           }
           
-          try {
-            await chrome.cookies.set(cookieData);
-          } catch (e) {
-            console.error('设置cookie失败:', e);
+          // 然后设置新的cookies
+          for (const cookie of accountCookies) {
+            // 确保cookie的domain和当前域名兼容
+            if (!checkCookieDomainCompatibility(cookie.domain, url.hostname)) {
+              console.log(`跳过不兼容的cookie: ${cookie.name}, domain: ${cookie.domain}`);
+              continue;
+            }
+            
+            // 准备cookie设置参数
+            const cookieData = {
+              url: tab.url,
+              name: cookie.name,
+              value: cookie.value,
+              path: cookie.path || '/',
+              secure: cookie.secure,
+              httpOnly: cookie.httpOnly,
+              sameSite: cookie.sameSite
+            };
+            
+            // 如果有过期时间，添加到参数中
+            if (cookie.expirationDate) {
+              cookieData.expirationDate = cookie.expirationDate;
+            }
+            
+            try {
+              await chrome.cookies.set(cookieData);
+            } catch (error) {
+              console.error(`设置cookie失败: ${cookie.name}`, error);
+            }
           }
+          
+          // 刷新cookie列表
+          await loadCookies();
+          
+          // 更新当前配置
+          await updateCurrentProfileAfterCookieChange();
+          
+          const successMessage = languageManager.getText('account_switched') || '账户已切换';
+          const successTitle = languageManager.getText('switch_success') || '切换成功';
+          
+          showAlert(successMessage, successTitle);
+          document.getElementById('accountModal').classList.remove('show');
         }
-        
-        alert('账户切换成功！页面将刷新以应用新的Cookie');
-        document.getElementById('accountModal').classList.remove('show');
-        
-        // 刷新页面以应用新的cookie
-        chrome.tabs.reload(tab.id);
       }
-    }
+    });
   }
 });
 
@@ -690,51 +1028,62 @@ document.getElementById('cancelAccount').addEventListener('click', function() {
 });
 
 // 加载页面初始化
-document.addEventListener('DOMContentLoaded', function() {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+document.addEventListener('DOMContentLoaded', async function() {
+  try {
+    // 先初始化语言
+    console.log('开始初始化语言设置...');
+    await languageManager.initializeLanguage();
+    console.log('语言初始化完成，当前语言:', languageManager.getCurrentLanguage());
+    updateLanguageUI();
+    languageManager.translatePage();
+    
+    // 获取标签页信息
+    const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+    
     if (!tabs || !tabs[0] || !tabs[0].url) {
       showErrorMessage("无法获取当前页面信息");
       return;
     }
 
-    try {
-      // 检查是否是chrome://、chrome-extension://等特殊URL
-      const url = tabs[0].url;
-      if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('devtools://')) {
-        showErrorMessage("无法在Chrome内部页面上使用此扩展");
-        disableControls();
-        return;
-      }
-
-      const urlObj = new URL(tabs[0].url);
-      currentDomain = urlObj.hostname;
-      document.getElementById('currentDomain').textContent = currentDomain;
-      
-      initializeProfileSelector();
-      loadStorageData();
-      
-      // 点击标签页切换
-      document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', function() {
-          document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-          
-          this.classList.add('active');
-          document.getElementById(this.dataset.tab).classList.add('active');
-          currentTab = this.dataset.tab;
-          
-          loadStorageData();
-        });
-      });
-    } catch (error) {
-      console.error("初始化错误:", error);
-      showErrorMessage("加载页面时发生错误: " + error.message);
+    // 检查是否是chrome://、chrome-extension://等特殊URL
+    const url = tabs[0].url;
+    if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('devtools://')) {
+      showErrorMessage("无法在Chrome内部页面上使用此扩展");
+      disableControls();
+      return;
     }
-  });
+
+    const urlObj = new URL(tabs[0].url);
+    currentDomain = urlObj.hostname;
+    document.getElementById('currentDomain').textContent = currentDomain;
+    
+    // 初始化配置文件选择器和默认配置
+    await initializeProfileSelector();
+    await initializeDefaultProfile();
+    await loadStorageData();
+    
+    // 点击标签页切换
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        
+        this.classList.add('active');
+        document.getElementById(this.dataset.tab).classList.add('active');
+        currentTab = this.dataset.tab;
+        
+        loadStorageData();
+      });
+    });
+  } catch (error) {
+    console.error("初始化错误:", error);
+    showErrorMessage("加载页面时发生错误: " + error.message);
+  }
 });
 
 // 显示错误信息
 function showErrorMessage(message) {
+  const errorTitle = languageManager.getText('error') || '错误';
   const container = document.querySelector('.container');
   const errorDiv = document.createElement('div');
   errorDiv.className = 'error-message';
@@ -766,6 +1115,21 @@ function disableControls() {
   document.querySelectorAll('input, select').forEach(input => {
     input.disabled = true;
   });
+  
+  console.log('已禁用所有控件');
+}
+
+// 恢复控件
+function enableControls() {
+  document.querySelectorAll('.tab-button, button:not(.close-btn)').forEach(btn => {
+    btn.disabled = false;
+  });
+  
+  document.querySelectorAll('input, select').forEach(input => {
+    input.disabled = false;
+  });
+  
+  console.log('已恢复所有控件');
 }
 
 // 加载存储数据
@@ -791,42 +1155,100 @@ async function loadStorageData() {
 
 // 加载LocalStorage
 async function loadLocalStorage() {
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  chrome.scripting.executeScript({
-    target: {tabId: tab.id},
-    func: () => {
-      const items = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        items[key] = localStorage.getItem(key);
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (!tab || !tab.url) {
+      console.error('无法获取当前标签页信息');
+      displayStorageItems({}, 'localStorage');
+      return;
+    }
+    
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      console.log('当前页面是Chrome内部页面，无法访问localStorage');
+      displayStorageItems({}, 'localStorage');
+      return;
+    }
+    
+    const result = await chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      func: () => {
+        try {
+          const items = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            items[key] = localStorage.getItem(key);
+          }
+          return { success: true, data: items };
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
       }
-      return items;
+    });
+    
+    if (result && result[0] && result[0].result) {
+      const scriptResult = result[0].result;
+      if (!scriptResult.success) {
+        showErrorMessage(`加载localStorage失败: ${scriptResult.error}`);
+        displayStorageItems({}, 'localStorage');
+      } else {
+        displayStorageItems(scriptResult.data, 'localStorage');
+      }
     }
-  }, (results) => {
-    if (results && results[0]) {
-      displayStorageItems(results[0].result, 'localStorage');
-    }
-  });
+  } catch (error) {
+    console.error('加载localStorage失败:', error);
+    showErrorMessage(`加载localStorage失败: ${error.message}`);
+    displayStorageItems({}, 'localStorage');
+  }
 }
 
 // 加载SessionStorage
 async function loadSessionStorage() {
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  chrome.scripting.executeScript({
-    target: {tabId: tab.id},
-    func: () => {
-      const items = {};
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        items[key] = sessionStorage.getItem(key);
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (!tab || !tab.url) {
+      console.error('无法获取当前标签页信息');
+      displayStorageItems({}, 'sessionStorage');
+      return;
+    }
+    
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      console.log('当前页面是Chrome内部页面，无法访问sessionStorage');
+      displayStorageItems({}, 'sessionStorage');
+      return;
+    }
+    
+    const result = await chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      func: () => {
+        try {
+          const items = {};
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            items[key] = sessionStorage.getItem(key);
+          }
+          return { success: true, data: items };
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
       }
-      return items;
+    });
+    
+    if (result && result[0] && result[0].result) {
+      const scriptResult = result[0].result;
+      if (!scriptResult.success) {
+        showErrorMessage(`加载sessionStorage失败: ${scriptResult.error}`);
+        displayStorageItems({}, 'sessionStorage');
+      } else {
+        displayStorageItems(scriptResult.data, 'sessionStorage');
+      }
     }
-  }, (results) => {
-    if (results && results[0]) {
-      displayStorageItems(results[0].result, 'sessionStorage');
-    }
-  });
+  } catch (error) {
+    console.error('加载sessionStorage失败:', error);
+    showErrorMessage(`加载sessionStorage失败: ${error.message}`);
+    displayStorageItems({}, 'sessionStorage');
+  }
 }
 
 // 加载Cookies
@@ -995,398 +1417,355 @@ async function loadIndexedDB() {
 // 显示存储项目
 function displayStorageItems(items, type) {
   const listElement = document.getElementById(`${type}List`);
-  listElement.innerHTML = '';
+  const searchInput = document.getElementById(`search${type.charAt(0).toUpperCase() + type.slice(1)}`);
+  const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
   
-  if (Object.keys(items).length === 0) {
-    listElement.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-        <p>暂无数据</p>
-      </div>
-    `;
+  // 过滤项目
+  const filteredItems = {};
+  for (const key in items) {
+    if (key.toLowerCase().includes(searchTerm) || items[key].toLowerCase().includes(searchTerm)) {
+      filteredItems[key] = items[key];
+    }
+  }
+  
+  // 如果没有项目，显示空状态
+  if (Object.keys(filteredItems).length === 0) {
+    const noDataText = languageManager.getText('no_data') || '暂无数据';
+    listElement.innerHTML = `<div class="empty-state">${noDataText}</div>`;
     return;
   }
   
-  const searchTerm = document.getElementById(`search${type.charAt(0).toUpperCase() + type.slice(1)}`).value.toLowerCase();
+  // 创建项目元素
+  const fragment = document.createDocumentFragment();
+  for (const key in filteredItems) {
+    const item = createStorageItem(key, filteredItems[key], type);
+    fragment.appendChild(item);
+  }
   
-  Object.entries(items).forEach(([key, value]) => {
-    if (searchTerm && !key.toLowerCase().includes(searchTerm) && !value.toLowerCase().includes(searchTerm)) {
-      return;
-    }
-    
-    const itemElement = createStorageItem(key, value, type);
-    listElement.appendChild(itemElement);
-  });
+  // 清空并添加新项目
+  listElement.innerHTML = '';
+  listElement.appendChild(fragment);
 }
 
 // 创建存储项目元素
 function createStorageItem(key, value, type) {
-  const item = document.createElement('div');
-  item.className = 'storage-item';
-  
-  const isLongValue = value.length > 200;
-  const displayValue = isLongValue ? value.substring(0, 200) + '...' : value;
-  
-  item.innerHTML = `
-    <div class="storage-item-header">
-      <div class="storage-key">${escapeHtml(key)}</div>
-      <div class="storage-actions">
-        <button class="action-btn edit-btn" data-key="${escapeHtml(key)}" data-type="${type}">编辑</button>
-        <button class="action-btn delete-btn" data-key="${escapeHtml(key)}" data-type="${type}">删除</button>
-      </div>
-    </div>
-    <div class="storage-value" data-full-value="${escapeHtml(value)}">
-      ${escapeHtml(displayValue)}
-      ${isLongValue ? '<button class="expand-btn">展开</button>' : ''}
-    </div>
-  `;
-  
-  // 编辑按钮事件
-  item.querySelector('.edit-btn').addEventListener('click', function() {
-    editingItem = key;
-    editingType = type;
-    openEditModal(key, value, type);
-  });
-  
-  // 删除按钮事件
-  item.querySelector('.delete-btn').addEventListener('click', function() {
-    deleteStorageItem(key, type);
-  });
-  
-  // 展开按钮事件
-  const expandBtn = item.querySelector('.expand-btn');
-  if (expandBtn) {
-    expandBtn.addEventListener('click', function() {
-      const valueElement = item.querySelector('.storage-value');
-      if (valueElement.classList.contains('expanded')) {
-        valueElement.classList.remove('expanded');
-        valueElement.innerHTML = escapeHtml(displayValue) + '<button class="expand-btn">展开</button>';
-      } else {
-        valueElement.classList.add('expanded');
-        valueElement.innerHTML = escapeHtml(value) + '<button class="expand-btn">收起</button>';
+  try {
+    // 创建显示值的函数，尝试格式化JSON
+    const displayValue = (val) => {
+      try {
+        // 检测是否是JSON字符串
+        const parsed = JSON.parse(val);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return JSON.stringify(parsed, null, 2);
+        }
+        return val;
+      } catch (e) {
+        return val;
       }
+    };
+    
+    const item = document.createElement('div');
+    item.className = 'storage-item';
+    item.dataset.key = key;
+    
+    const header = document.createElement('div');
+    header.className = 'item-header';
+    
+    const keyElement = document.createElement('div');
+    keyElement.className = 'item-key';
+    keyElement.textContent = key;
+    
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
+    
+    const editText = languageManager ? languageManager.getText('edit') : '编辑';
+    const deleteText = languageManager ? languageManager.getText('delete') : '删除';
+    
+    // 创建编辑按钮
+    const editBtn = document.createElement('button');
+    editBtn.className = 'action-btn edit-btn';
+    editBtn.dataset.key = key;
+    editBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+      ${editText}
+    `;
+    
+    // 创建删除按钮
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'action-btn delete-btn';
+    deleteBtn.dataset.key = key;
+    deleteBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+      ${deleteText}
+    `;
+    
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+    
+    header.appendChild(keyElement);
+    header.appendChild(actions);
+    
+    const valueDisplay = document.createElement('pre');
+    valueDisplay.className = 'item-value';
+    valueDisplay.textContent = displayValue(value);
+    
+    // 如果值很长，添加展开按钮
+    if (value && value.length > 100) {
+      valueDisplay.classList.add('truncated');
       
-      valueElement.querySelector('.expand-btn').addEventListener('click', arguments.callee);
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'expand-btn';
+      expandBtn.textContent = '...';
+      
+      const showMoreText = languageManager ? languageManager.getText('show_more') : '显示更多';
+      const showLessText = languageManager ? languageManager.getText('show_less') : '显示更少';
+      
+      expandBtn.title = showMoreText;
+      
+      expandBtn.addEventListener('click', function() {
+        valueDisplay.classList.toggle('expanded');
+        if (valueDisplay.classList.contains('expanded')) {
+          expandBtn.title = showLessText;
+        } else {
+          expandBtn.title = showMoreText;
+        }
+      });
+      
+      valueDisplay.appendChild(expandBtn);
+    }
+    
+    item.appendChild(header);
+    item.appendChild(valueDisplay);
+    
+    // 添加事件监听
+    editBtn.addEventListener('click', function() {
+      editingItem = key; // 设置当前编辑的项目为键名
+      editingType = type;
+      openEditModal(key, value, type);
     });
+    
+    deleteBtn.addEventListener('click', function() {
+      // 使用自定义确认弹窗
+      const confirmMessage = languageManager 
+        ? languageManager.getText('confirm_delete_item').replace('{name}', key)
+        : `确定要删除 "${key}" 吗？`;
+      
+      const confirmTitle = languageManager
+        ? languageManager.getText('confirm_title')
+        : '确认删除';
+        
+      showConfirm(confirmMessage, confirmTitle, (confirmed) => {
+        if (confirmed) {
+          deleteStorageItem(key, type);
+        }
+      });
+    });
+    
+    return item;
+  } catch (error) {
+    console.error('创建存储项时出错:', error);
+    const errorItem = document.createElement('div');
+    errorItem.className = 'storage-item error';
+    errorItem.textContent = `无法显示: ${key}`;
+    return errorItem;
   }
-  
-  return item;
 }
 
 // 显示Cookies
 function displayCookies(cookies) {
-  const listElement = document.getElementById('cookiesList');
-  listElement.innerHTML = '';
+  const cookiesList = document.getElementById('cookiesList');
+  const searchInput = document.getElementById('searchCookies');
+  const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
   
-  // 确保cookies是数组
-  if (!Array.isArray(cookies)) {
-    console.error('cookies不是数组类型:', cookies);
-    cookies = [];
-  }
+  // 过滤Cookies
+  const filteredCookies = cookies.filter(cookie => 
+    cookie.name.toLowerCase().includes(searchTerm) || 
+    cookie.value.toLowerCase().includes(searchTerm) ||
+    cookie.domain.toLowerCase().includes(searchTerm)
+  );
   
-  console.log('显示cookies数量:', cookies.length);
-  
+  // 如果没有Cookie，显示空状态
   if (cookies.length === 0) {
-    listElement.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-          <line x1="9" y1="9" x2="9.01" y2="9"></line>
-          <line x1="15" y1="9" x2="15.01" y2="9"></line>
-        </svg>
-        <p>暂无Cookies</p>
-      </div>
-    `;
+    const noCookiesText = languageManager.getText('no_cookies') || '暂无Cookies';
+    cookiesList.innerHTML = `<div class="empty-state">${noCookiesText}</div>`;
     return;
   }
   
-  const searchTerm = document.getElementById('searchCookies').value.toLowerCase();
-  let displayedCount = 0;
+  // 如果有Cookie但没有匹配搜索条件
+  if (cookies.length > 0 && filteredCookies.length === 0) {
+    const noMatchText = languageManager.getText('no_matching_cookies') || '找到 Cookies，但没有匹配当前搜索条件';
+    cookiesList.innerHTML = `<div class="empty-state">${noMatchText}</div>`;
+    return;
+  }
   
-  cookies.forEach(cookie => {
-    if (!cookie || !cookie.name) {
-      console.error('无效的cookie对象:', cookie);
-      return;
-    }
+  // 获取翻译文本
+  const editText = languageManager.getText('edit') || '编辑';
+  const deleteText = languageManager.getText('delete') || '删除';
+  const domainText = languageManager.getText('domain_field') || '域名';
+  const pathText = languageManager.getText('path_field') || '路径';
+  const expiresText = languageManager.getText('expires_field') || '过期时间';
+  
+  // 创建Cookie元素
+  const fragment = document.createDocumentFragment();
+  filteredCookies.forEach(cookie => {
+    const cookieItem = document.createElement('div');
+    cookieItem.className = 'storage-item';
     
-    if (searchTerm && !cookie.name.toLowerCase().includes(searchTerm) && 
-        !cookie.value.toLowerCase().includes(searchTerm)) {
-      return;
-    }
+    const expiresDate = cookie.expirationDate ? 
+      new Date(cookie.expirationDate * 1000).toLocaleString() : 
+      'Session';
     
-    displayedCount++;
-    const item = document.createElement('div');
-    item.className = 'storage-item';
-    
-    item.innerHTML = `
-      <div class="storage-item-header">
-        <div class="storage-key">${escapeHtml(cookie.name)}</div>
-        <div class="storage-actions">
-          <button class="action-btn edit-btn">编辑</button>
-          <button class="action-btn delete-btn">删除</button>
+    cookieItem.innerHTML = `
+      <div class="item-header">
+        <div class="item-key">${escapeHtml(cookie.name)}</div>
+        <div class="item-actions">
+          <button class="action-btn edit-btn" data-cookie-name="${escapeHtml(cookie.name)}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            ${editText}
+          </button>
+          <button class="action-btn delete-btn" data-cookie-name="${escapeHtml(cookie.name)}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            ${deleteText}
+          </button>
         </div>
       </div>
-      <div class="storage-value">${escapeHtml(cookie.value)}</div>
-      <div class="cookie-details">
-        <span>域名: ${escapeHtml(cookie.domain || '')}</span>
-        <span>路径: ${escapeHtml(cookie.path || '/')}</span>
-        ${cookie.expirationDate ? `<span>过期: ${new Date(cookie.expirationDate * 1000).toLocaleString()}</span>` : ''}
-        ${cookie.secure ? '<span>🔒 Secure</span>' : ''}
-        ${cookie.httpOnly ? '<span>🔐 HttpOnly</span>' : ''}
+      <div class="item-value">${escapeHtml(cookie.value)}</div>
+      <div class="item-meta">
+        <span>${domainText}: ${escapeHtml(cookie.domain)}</span>
+        <span>${pathText}: ${escapeHtml(cookie.path)}</span>
+        <span>${expiresText}: ${escapeHtml(expiresDate)}</span>
+        ${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
+        ${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
+        ${cookie.sameSite ? `<span class="cookie-flag">SameSite=${escapeHtml(cookie.sameSite)}</span>` : ''}
       </div>
     `;
     
-    // 编辑按钮事件
-    item.querySelector('.edit-btn').addEventListener('click', function() {
-      editingItem = cookie;
-      editingType = 'cookie';
-      openEditModal(cookie.name, cookie.value, 'cookie', cookie);
+    // 添加编辑事件
+    cookieItem.querySelector('.edit-btn').addEventListener('click', function() {
+      const cookieName = this.dataset.cookieName;
+      const cookie = cookies.find(c => c.name === cookieName);
+      if (cookie) {
+        editingItem = cookie; // 设置当前编辑的Cookie对象
+        editingType = 'cookie';
+        openEditModal(cookie.name, cookie.value, 'cookie', cookie);
+      }
     });
     
-    // 删除按钮事件
-    item.querySelector('.delete-btn').addEventListener('click', function() {
-      deleteCookie(cookie);
+    // 添加删除事件
+    cookieItem.querySelector('.delete-btn').addEventListener('click', function() {
+      const cookieName = this.dataset.cookieName;
+      const cookie = cookies.find(c => c.name === cookieName);
+      if (cookie) {
+        const confirmMessage = languageManager.getText('confirm_delete_item') || '确定要删除 "{name}" 吗？';
+        const confirmTitle = languageManager.getText('confirm_title') || '确认删除';
+        
+        showConfirm(
+          confirmMessage.replace('{name}', cookie.name),
+          confirmTitle,
+          async function(confirmed) {
+            if (confirmed) {
+              await deleteCookie(cookie);
+              await loadCookies();
+            }
+          }
+        );
+      }
     });
     
-    listElement.appendChild(item);
+    fragment.appendChild(cookieItem);
   });
   
-  console.log('实际显示cookie数量:', displayedCount);
-  
-  // 如果应该有cookie但没有显示，表明可能有问题
-  if (cookies.length > 0 && displayedCount === 0) {
-    listElement.innerHTML = `
-      <div class="empty-state warning">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
-        <p>找到 ${cookies.length} 个Cookie，但没有匹配当前搜索条件</p>
-      </div>
-    `;
-  }
+  // 清空并添加新Cookie
+  cookiesList.innerHTML = '';
+  cookiesList.appendChild(fragment);
 }
 
 // 显示IndexedDB
 function displayIndexedDB(databases) {
-  const listElement = document.getElementById('indexedDBList');
-  listElement.innerHTML = '';
+  const indexedDBList = document.getElementById('indexedDBList');
   
-  if (!databases || databases.length === 0) {
-    listElement.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="9" y1="3" x2="9" y2="21"></line>
-        </svg>
-        <p>暂无IndexedDB数据库</p>
-      </div>
-    `;
+  if (databases.length === 0) {
+    const noDataText = languageManager.getText('no_indexeddb') || '暂无IndexedDB数据库';
+    console.log(noDataText)
+    indexedDBList.innerHTML = `<div class="empty-state">${noDataText}</div>`;
     return;
   }
   
+  const errorText = languageManager.getText('indexeddb_error') || '错误';
+  const storeCountText = languageManager.getText('store_count') || '项目数';
+  const storeKeyPathText = languageManager.getText('store_keypath') || '主键';
+  const indicesText = languageManager.getText('indices') || '索引';
+  const sampleDataText = languageManager.getText('sample_data') || '样本数据 (前10条)';
+  const noObjectStoresText = languageManager.getText('no_object_stores') || '无对象仓库';
+  
+  let html = '';
+  
   databases.forEach(db => {
-    const dbElement = document.createElement('div');
-    dbElement.className = 'db-item';
-    
-    // 如果有错误信息则显示
-    if (db.error) {
-      dbElement.innerHTML = `
-        <div class="db-header">
-          <h3>${escapeHtml(db.name)}</h3>
+    html += `
+      <div class="indexeddb-item">
+        <div class="indexeddb-header">
+          <div class="indexeddb-name">${escapeHtml(db.name)} (v${db.version})</div>
         </div>
-        <div class="db-error">错误: ${escapeHtml(db.error)}</div>
-      `;
-      listElement.appendChild(dbElement);
-      return;
-    }
-    
-    dbElement.innerHTML = `
-      <div class="db-header">
-        <h3>${escapeHtml(db.name)}</h3>
-        <span class="badge">v${db.version}</span>
-      </div>
-      <div class="stores-container"></div>
     `;
     
-    const storesContainer = dbElement.querySelector('.stores-container');
-    
-    if (!db.stores || db.stores.length === 0) {
-      storesContainer.innerHTML = '<div class="empty-state-small">无对象仓库</div>';
+    if (db.error) {
+      html += `<div class="indexeddb-error">${errorText}: ${escapeHtml(db.error)}</div>`;
+    } else if (!db.objectStores || db.objectStores.length === 0) {
+      html += `<div class="empty-state">${noObjectStoresText}</div>`;
     } else {
-      db.stores.forEach(store => {
-        const storeElement = document.createElement('div');
-        storeElement.className = 'store-item';
-        
-        // 构建索引信息
-        let indicesHtml = '';
-        if (store.indices && store.indices.length > 0) {
-          indicesHtml = `
-            <div class="store-indices">
-              <div class="store-section-title">索引:</div>
-              <div class="indices-list">${store.indices.map(idx => `<span class="index-badge">${escapeHtml(idx)}</span>`).join(' ')}</div>
+      db.objectStores.forEach(store => {
+        html += `
+          <div class="objectstore-item">
+            <div class="objectstore-header">
+              <div class="objectstore-name">${escapeHtml(store.name)}</div>
+              <div class="objectstore-meta">
+                <span>${storeCountText}: ${store.count}</span>
+                <span>${storeKeyPathText}: ${escapeHtml(store.keyPath || 'auto')}</span>
+              </div>
             </div>
-          `;
+        `;
+        
+        // 显示索引
+        if (store.indices && store.indices.length > 0) {
+          html += `<div class="objectstore-indices"><strong>${indicesText}:</strong> ${store.indices.map(idx => escapeHtml(idx.name)).join(', ')}</div>`;
         }
         
-        // 构建样本数据显示
-        let sampleDataHtml = '';
-        if (store.sampleData && store.sampleData.length > 0) {
-          sampleDataHtml = `
-            <div class="store-samples">
-              <div class="store-section-title">样本数据 (前10条):</div>
-              <div class="samples-container">
-                ${store.sampleData.map(sample => `
-                  <div class="sample-item">
-                    <div class="sample-key">${escapeHtml(String(sample.key))}</div>
-                    <div class="sample-preview">${escapeHtml(sample.preview)}</div>
-                  </div>
-                `).join('')}
+        // 显示样本数据
+        if (store.data && store.data.length > 0) {
+          html += `
+            <div class="objectstore-data">
+              <div class="data-header">${sampleDataText}</div>
+              <div class="data-content">
+                <pre>${escapeHtml(JSON.stringify(store.data, null, 2))}</pre>
               </div>
             </div>
           `;
         }
         
-        // 构建错误信息
-        let errorHtml = '';
-        if (store.error) {
-          errorHtml = `<div class="store-error">错误: ${escapeHtml(store.error)}</div>`;
-        }
-        
-        storeElement.innerHTML = `
-          <div class="store-header">
-            <div class="store-name">${escapeHtml(store.name)}</div>
-            <div class="store-meta">
-              <span class="store-count">项目数: ${escapeHtml(String(store.count))}</span>
-              ${store.keyPath ? `<span class="store-keypath">主键: ${escapeHtml(String(store.keyPath))}</span>` : ''}
-            </div>
-          </div>
-          ${errorHtml}
-          ${indicesHtml}
-          ${sampleDataHtml}
-        `;
-        
-        storesContainer.appendChild(storeElement);
+        html += '</div>';
       });
     }
     
-    listElement.appendChild(dbElement);
+    html += '</div>';
   });
-
-  // 添加样式
-  const styleElement = document.getElementById('indexedDbStyles') || document.createElement('style');
-  if (!document.getElementById('indexedDbStyles')) {
-    styleElement.id = 'indexedDbStyles';
-    styleElement.textContent = `
-      .db-item {
-        margin-bottom: 20px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        overflow: hidden;
-      }
-      .db-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 15px;
-        background-color: #f5f5f5;
-        border-bottom: 1px solid #ddd;
-      }
-      .db-header h3 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-      }
-      .badge {
-        background: #e0e0e0;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 12px;
-      }
-      .store-item {
-        padding: 12px 15px;
-        border-bottom: 1px solid #eee;
-      }
-      .store-item:last-child {
-        border-bottom: none;
-      }
-      .store-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 10px;
-      }
-      .store-name {
-        font-weight: 600;
-        color: #333;
-      }
-      .store-meta {
-        font-size: 12px;
-        color: #666;
-      }
-      .store-count, .store-keypath {
-        margin-left: 10px;
-      }
-      .store-section-title {
-        font-size: 13px;
-        font-weight: 600;
-        margin-top: 12px;
-        margin-bottom: 8px;
-      }
-      .index-badge {
-        display: inline-block;
-        background: #eef2f7;
-        padding: 2px 6px;
-        margin: 2px;
-        border-radius: 3px;
-        font-size: 12px;
-      }
-      .store-samples {
-        margin-top: 10px;
-      }
-      .sample-item {
-        margin-bottom: 8px;
-        border-left: 3px solid #e0e0e0;
-        padding-left: 10px;
-      }
-      .sample-key {
-        font-weight: 600;
-        font-size: 12px;
-        margin-bottom: 3px;
-      }
-      .sample-preview {
-        font-family: monospace;
-        font-size: 12px;
-        background: #f7f7f7;
-        padding: 8px;
-        border-radius: 3px;
-        white-space: pre-wrap;
-        word-break: break-all;
-        max-height: 100px;
-        overflow-y: auto;
-      }
-      .store-error, .db-error {
-        color: #d32f2f;
-        font-size: 13px;
-        padding: 8px;
-        background-color: #ffebee;
-        border-radius: 4px;
-        margin-bottom: 10px;
-      }
-      .empty-state-small {
-        font-size: 13px;
-        color: #888;
-        text-align: center;
-        padding: 15px;
-      }
-    `;
-    document.head.appendChild(styleElement);
-  }
+  
+  indexedDBList.innerHTML = html;
 }
 
 // 打开编辑弹窗
@@ -1398,12 +1777,16 @@ function openEditModal(key, value, type, cookieData = null) {
   const cookieFields = document.getElementById('cookieFields');
   const modalFooter = document.querySelector('.modal-footer');
   
-  modalTitle.textContent = editingItem === null ? '添加项目' : '编辑项目';
+  // 设置标题和字段值
+  modalTitle.textContent = editingItem === null ? 
+    (languageManager ? languageManager.getText('add_item') : '添加项目') : 
+    (languageManager ? languageManager.getText('edit_item') : '编辑项目');
+  
   keyInput.value = key || '';
   
   // 尝试格式化JSON
   let formattedValue = value || '';
-  if (type === 'localStorage' || type === 'sessionStorage') {
+  if ((type === 'localStorage' || type === 'sessionStorage') && value) {
     try {
       const jsonObj = JSON.parse(value);
       formattedValue = JSON.stringify(jsonObj, null, 2);
@@ -1420,18 +1803,29 @@ function openEditModal(key, value, type, cookieData = null) {
   modalFooter.style.backgroundColor = 'white';
   modalFooter.style.zIndex = '20';
   
-  if (type === 'cookie') {
+  if (type === 'cookie' || type === 'cookies') {
     cookieFields.style.display = 'block';
     if (cookieData) {
       document.getElementById('editDomain').value = cookieData.domain || '';
       document.getElementById('editPath').value = cookieData.path || '/';
       document.getElementById('editSecure').checked = cookieData.secure || false;
       document.getElementById('editHttpOnly').checked = cookieData.httpOnly || false;
-      
+      document.getElementById('editSameSite').value = cookieData.sameSite || '';
+
       if (cookieData.expirationDate) {
         const date = new Date(cookieData.expirationDate * 1000);
         document.getElementById('editExpires').value = date.toISOString().slice(0, 16);
+      } else {
+        document.getElementById('editExpires').value = '';
       }
+    } else {
+      // 重置Cookie字段
+      document.getElementById('editDomain').value = '';
+      document.getElementById('editPath').value = '/';
+      document.getElementById('editSecure').checked = false;
+      document.getElementById('editHttpOnly').checked = false;
+      document.getElementById('editSameSite').value = '';
+      document.getElementById('editExpires').value = '';
     }
   } else {
     cookieFields.style.display = 'none';
@@ -1443,9 +1837,17 @@ function openEditModal(key, value, type, cookieData = null) {
   formatSection.style.marginTop = '10px';
   formatSection.style.marginBottom = '15px'; // 增加底部间距，避免贴近操作按钮
   formatSection.innerHTML = `
-    <button id="formatJson" class="btn btn-sm">格式化JSON</button>
-    <button id="minifyJson" class="btn btn-sm">压缩JSON</button>
+    <button id="formatJson" class="btn btn-sm" data-i18n="format_json">格式化JSON</button>
+    <button id="minifyJson" class="btn btn-sm" data-i18n="minify_json">压缩JSON</button>
   `;
+  
+  // 应用多语言翻译
+  if (languageManager) {
+    formatSection.querySelector('[data-i18n="format_json"]').textContent = 
+      languageManager.getText('format_json');
+    formatSection.querySelector('[data-i18n="minify_json"]').textContent = 
+      languageManager.getText('minify_json');
+  }
   
   // 如果是localStorage或sessionStorage，显示格式化按钮
   if (type === 'localStorage' || type === 'sessionStorage') {
@@ -1498,6 +1900,8 @@ function openEditModal(key, value, type, cookieData = null) {
     // 添加窗口大小变化事件监听
     window.addEventListener('resize', adjustModalSize);
   }, 10);
+  
+  console.log(`打开编辑弹窗 - 类型: ${type}, 当前编辑项: ${editingItem}, 键: ${key}, 值长度: ${value ? value.length : 0}`);
 }
 
 // 关闭编辑弹窗
@@ -1560,40 +1964,126 @@ document.getElementById('saveEdit').addEventListener('click', async function() {
   
   if (editingType === 'cookie') {
     await saveCookie();
+    // saveCookie 函数内部已经调用了 closeEditModal()
   } else {
     await saveStorageItem(key, value, editingType);
+    closeEditModal();
   }
-  
-  closeEditModal();
-  loadStorageData();
 });
 
 // 保存存储项目
 async function saveStorageItem(key, value, type) {
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   
-  chrome.scripting.executeScript({
-    target: {tabId: tab.id},
-    func: (key, value, type, oldKey) => {
-      if (type === 'localStorage') {
-        if (oldKey && oldKey !== key) {
-          localStorage.removeItem(oldKey);
+  // 添加调试日志
+  console.log(`准备保存 - 类型: ${type}, 键: ${key}, 旧键: ${editingItem}, 值长度: ${value ? value.length : 0}`);
+  
+  try {
+    // 注意: Chrome 扩展中，content script不能直接访问浏览器控制台日志
+    // 所以页面内的console.log可能不会显示
+    const result = await chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      func: (key, value, type, oldKey) => {
+        try {
+          // 检查参数
+          if (!key) {
+            return {success: false, error: '键名不能为空'};
+          }
+          
+          if (type === 'localStorage') {
+            // 如果有旧键且与新键不同，删除旧键
+            if (oldKey && oldKey !== key) {
+              localStorage.removeItem(oldKey);
+            }
+            // 设置新值
+            localStorage.setItem(key, value);
+            // 验证设置是否生效
+            const storedValue = localStorage.getItem(key);
+            if (storedValue !== value) {
+              return {
+                success: false, 
+                error: '设置后验证失败，可能存储失败',
+                expected: value,
+                actual: storedValue
+              };
+            }
+            return {success: true, length: localStorage.length};
+          } else if (type === 'sessionStorage') {
+            // 如果有旧键且与新键不同，删除旧键
+            if (oldKey && oldKey !== key) {
+              sessionStorage.removeItem(oldKey);
+            }
+            // 设置新值
+            sessionStorage.setItem(key, value);
+            // 验证设置是否生效
+            const storedValue = sessionStorage.getItem(key);
+            if (storedValue !== value) {
+              return {
+                success: false, 
+                error: '设置后验证失败，可能存储失败',
+                expected: value,
+                actual: storedValue
+              };
+            }
+            return {success: true, length: sessionStorage.length};
+          }
+          return {success: false, error: '未知的存储类型: ' + type};
+        } catch (error) {
+          return {success: false, error: error.message};
         }
-        localStorage.setItem(key, value);
-      } else if (type === 'sessionStorage') {
-        if (oldKey && oldKey !== key) {
-          sessionStorage.removeItem(oldKey);
+      },
+      args: [key, value, type, editingItem]
+    });
+    
+    if (result && result[0] && result[0].result) {
+      const scriptResult = result[0].result;
+      if (!scriptResult.success) {
+        console.error(`保存失败:`, scriptResult);
+        showErrorMessage(`保存失败: ${scriptResult.error}`);
+      } else {
+        console.log(`保存成功，当前${type}项目数: ${scriptResult.length}`);
+        
+        // 如果是localStorage，自动更新当前配置
+        if (type === 'localStorage') {
+          await updateCurrentProfileAfterLocalStorageChange();
         }
-        sessionStorage.setItem(key, value);
+        
+        // 刷新显示
+        if (type === 'localStorage') {
+          await loadLocalStorage();
+        } else if (type === 'sessionStorage') {
+          await loadSessionStorage();
+        }
       }
-    },
-    args: [key, value, type, editingItem]
-  }, async () => {
-    // 如果是localStorage，自动更新当前配置
-    if (type === 'localStorage') {
-      await updateCurrentProfileAfterLocalStorageChange();
+    } else {
+      console.error('执行脚本返回结果无效:', result);
+      showErrorMessage('保存失败: 执行脚本返回结果无效');
     }
-  });
+  } catch (error) {
+    console.error('保存存储项目时出错:', error);
+    showErrorMessage(`保存失败: ${error.message}`);
+  }
+}
+
+// 检查Cookie域名兼容性
+function checkCookieDomainCompatibility(cookieDomain, currentHostname) {
+  // 如果cookie域名不是以点开头，添加点前缀
+  if (cookieDomain && !cookieDomain.startsWith('.')) {
+    cookieDomain = '.' + cookieDomain;
+  }
+
+  // 如果当前域名不是以点开头，添加点前缀
+  let hostname = currentHostname;
+  if (!hostname.startsWith('.')) {
+    hostname = '.' + hostname;
+  }
+  
+  // 域名相同或当前域名是cookie域名的子域
+  if (cookieDomain === hostname || hostname.endsWith(cookieDomain)) {
+    return true;
+  }
+  
+  return false;
 }
 
 // 保存Cookie
@@ -1601,136 +2091,266 @@ async function saveCookie() {
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const url = new URL(tab.url);
   
+  // 获取Cookie数据
+  let domain = document.getElementById('editDomain').value;
+  
+  // 如果域名为空，则使用当前页面的域名
+  if (!domain) {
+    domain = url.hostname;
+  }
+  
+  // 检查域名兼容性
+  if (!checkCookieDomainCompatibility(domain, url.hostname)) {
+    showErrorMessage(`设置cookie失败: 域名"${domain}"与当前页面"${url.hostname}"不兼容。只有当cookie域名是当前域名或当前域名的父域时才能设置Cookie。`);
+    return;
+  }
+  
   const cookieData = {
     url: tab.url,
     name: document.getElementById('editKey').value,
     value: document.getElementById('editValue').value,
-    domain: document.getElementById('editDomain').value || url.hostname,
+    domain: domain,
     path: document.getElementById('editPath').value || '/',
     secure: document.getElementById('editSecure').checked,
     httpOnly: document.getElementById('editHttpOnly').checked
   };
-  
+
+  // 添加SameSite属性
+  const sameSiteValue = document.getElementById('editSameSite').value;
+  if (sameSiteValue) {
+    cookieData.sameSite = sameSiteValue;
+  }
+
   const expiresValue = document.getElementById('editExpires').value;
   if (expiresValue) {
     cookieData.expirationDate = new Date(expiresValue).getTime() / 1000;
   }
   
-  // 如果是编辑现有cookie，先删除旧的
-  if (editingItem && editingItem.name) {
-    await chrome.cookies.remove({
-      url: tab.url,
-      name: editingItem.name
-    });
+  try {
+    // 如果是编辑现有cookie，先删除旧的
+    if (editingItem && editingItem.name) {
+      await chrome.cookies.remove({
+        url: tab.url,
+        name: editingItem.name
+      });
+    }
+    
+    await chrome.cookies.set(cookieData);
+    
+    // 自动更新当前配置的cookie
+    await updateCurrentProfileAfterCookieChange();
+    
+    // 关闭编辑窗口
+    closeEditModal();
+    
+    // 刷新Cookie列表
+    loadCookies();
+  } catch (error) {
+    showErrorMessage(`设置cookie失败: ${error.message}`);
   }
-  
-  await chrome.cookies.set(cookieData);
-  
-  // 自动更新当前配置的cookie
-  await updateCurrentProfileAfterCookieChange();
 }
 
-// 删除存储项目
+// 删除存储项目（内部函数，不显示确认对话框）
 async function deleteStorageItem(key, type) {
-  if (confirm(`确定要删除 "${key}" 吗？`)) {
+  try {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    
-    chrome.scripting.executeScript({
+
+    const result = await chrome.scripting.executeScript({
       target: {tabId: tab.id},
       func: (key, type) => {
-        if (type === 'localStorage') {
-          localStorage.removeItem(key);
-        } else if (type === 'sessionStorage') {
-          sessionStorage.removeItem(key);
+        try {
+          if (type === 'localStorage') {
+            localStorage.removeItem(key);
+            return {success: true, length: localStorage.length};
+          } else if (type === 'sessionStorage') {
+            sessionStorage.removeItem(key);
+            return {success: true, length: sessionStorage.length};
+          }
+          return {success: false, error: 'Unknown storage type'};
+        } catch (error) {
+          return {success: false, error: error.message};
         }
       },
       args: [key, type]
-    }, async () => {
-      loadStorageData();
-      
-      // 如果是localStorage，自动更新当前配置
-      if (type === 'localStorage') {
-        await updateCurrentProfileAfterLocalStorageChange();
-      }
     });
+
+    if (result && result[0] && result[0].result) {
+      const scriptResult = result[0].result;
+      if (!scriptResult.success) {
+        showErrorMessage(`删除失败: ${scriptResult.error}`);
+      } else {
+        console.log(`删除成功，当前${type}项目数: ${scriptResult.length}`);
+
+        // 如果是localStorage，自动更新当前配置
+        if (type === 'localStorage') {
+          await updateCurrentProfileAfterLocalStorageChange();
+        }
+
+        // 刷新显示
+        if (type === 'localStorage') {
+          await loadLocalStorage();
+        } else if (type === 'sessionStorage') {
+          await loadSessionStorage();
+        }
+      }
+    }
+  } catch (error) {
+    console.error('删除存储项目时出错:', error);
+    showErrorMessage(`删除失败: ${error.message}`);
   }
 }
 
-// 删除Cookie
+// 删除Cookie（内部函数，不显示确认对话框）
 async function deleteCookie(cookie) {
-  if (confirm(`确定要删除Cookie "${cookie.name}" 吗？`)) {
+  try {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    
+
     await chrome.cookies.remove({
       url: tab.url,
       name: cookie.name
     });
-    
-    loadCookies();
-    
-    // 自动更新当前配置的cookie
+
+    console.log(`已删除Cookie: ${cookie.name}`);
+    await loadCookies();
+    // 更新当前配置
     await updateCurrentProfileAfterCookieChange();
+  } catch (error) {
+    console.error('删除Cookie失败:', error);
+    showErrorMessage(`删除Cookie失败: ${error.message}`);
   }
 }
 
-// 添加按钮事件
-document.getElementById('addLocalStorage').addEventListener('click', function() {
-  editingItem = null;
-  editingType = 'localStorage';
-  openEditModal('', '', 'localStorage');
-});
-
-document.getElementById('addSessionStorage').addEventListener('click', function() {
-  editingItem = null;
-  editingType = 'sessionStorage';
-  openEditModal('', '', 'sessionStorage');
-});
-
-document.getElementById('addCookie').addEventListener('click', function() {
-  editingItem = null;
-  editingType = 'cookie';
-  openEditModal('', '', 'cookie');
-});
-
-// 清空按钮事件
-document.getElementById('clearLocalStorage').addEventListener('click', async function() {
-  if (confirm('确定要清空所有LocalStorage数据吗？')) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      func: () => localStorage.clear()
-    }, () => {
-      loadLocalStorage();
-    });
-  }
-});
-
-document.getElementById('clearSessionStorage').addEventListener('click', async function() {
-  if (confirm('确定要清空所有SessionStorage数据吗？')) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      func: () => sessionStorage.clear()
-    }, () => {
-      loadSessionStorage();
-    });
-  }
-});
-
-document.getElementById('clearCookies').addEventListener('click', async function() {
-  if (confirm('确定要清空所有Cookies吗？')) {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    const cookies = await chrome.cookies.getAll({url: tab.url});
+// 清空localStorage
+document.getElementById('clearLocalStorage').addEventListener('click', function() {
+  const confirmMessage = languageManager 
+    ? languageManager.getText('confirm_clear_localStorage')
+    : '确定要清空所有LocalStorage数据吗？';
+  
+  const confirmTitle = languageManager
+    ? languageManager.getText('confirm_title')
+    : '确认清空';
     
-    for (const cookie of cookies) {
-      await chrome.cookies.remove({
-        url: tab.url,
-        name: cookie.name
-      });
+  showConfirm(confirmMessage, confirmTitle, async function(confirmed) {
+    if (confirmed) {
+      try {
+        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        
+        const result = await chrome.scripting.executeScript({
+          target: {tabId: tab.id},
+          func: () => {
+            try {
+              localStorage.clear();
+              return { success: true, length: localStorage.length };
+            } catch (error) {
+              return { success: false, error: error.message };
+            }
+          }
+        });
+        
+        if (result && result[0] && result[0].result) {
+          const scriptResult = result[0].result;
+          if (!scriptResult.success) {
+            showErrorMessage(`清空localStorage失败: ${scriptResult.error}`);
+          } else {
+            console.log('已清空localStorage');
+            await loadLocalStorage();
+            // 更新当前配置
+            await updateCurrentProfileAfterLocalStorageChange();
+          }
+        }
+      } catch (error) {
+        console.error('清空localStorage失败:', error);
+        showErrorMessage(`清空localStorage失败: ${error.message}`);
+      }
     }
+  });
+});
+
+document.getElementById('clearSessionStorage').addEventListener('click', function() {
+  const confirmMessage = languageManager 
+    ? languageManager.getText('confirm_clear_sessionStorage')
+    : '确定要清空所有SessionStorage数据吗？';
+  
+  const confirmTitle = languageManager
+    ? languageManager.getText('confirm_title')
+    : '确认清空';
     
-    loadCookies();
-  }
+  showConfirm(confirmMessage, confirmTitle, async function(confirmed) {
+    if (confirmed) {
+      try {
+        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        
+        const result = await chrome.scripting.executeScript({
+          target: {tabId: tab.id},
+          func: () => {
+            try {
+              sessionStorage.clear();
+              return { success: true, length: sessionStorage.length };
+            } catch (error) {
+              return { success: false, error: error.message };
+            }
+          }
+        });
+        
+        if (result && result[0] && result[0].result) {
+          const scriptResult = result[0].result;
+          if (!scriptResult.success) {
+            showErrorMessage(`清空sessionStorage失败: ${scriptResult.error}`);
+          } else {
+            console.log('已清空sessionStorage');
+            await loadSessionStorage();
+          }
+        }
+      } catch (error) {
+        console.error('清空sessionStorage失败:', error);
+        showErrorMessage(`清空sessionStorage失败: ${error.message}`);
+      }
+    }
+  });
+});
+
+document.getElementById('clearCookies').addEventListener('click', function() {
+  const confirmMessage = languageManager 
+    ? languageManager.getText('confirm_clear_cookies')
+    : '确定要清空所有Cookies吗？';
+  
+  const confirmTitle = languageManager
+    ? languageManager.getText('confirm_title')
+    : '确认清空';
+    
+  showConfirm(confirmMessage, confirmTitle, async function(confirmed) {
+    if (confirmed) {
+      try {
+        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        const cookies = await chrome.cookies.getAll({url: tab.url});
+        
+        for (const cookie of cookies) {
+          await chrome.cookies.remove({
+            url: tab.url,
+            name: cookie.name
+          });
+        }
+        
+        loadCookies();
+        
+        // 自动更新当前配置的cookie
+        await updateCurrentProfileAfterCookieChange();
+        
+        const successMessage = languageManager 
+          ? languageManager.getText('cookies_cleared')
+          : '所有Cookie已清除';
+          
+        const successTitle = languageManager
+          ? languageManager.getText('success')
+          : '清除成功';
+          
+        showAlert(successMessage, successTitle);
+      } catch (error) {
+        console.error('清空cookies失败:', error);
+        showErrorMessage(`清空cookies失败: ${error.message}`);
+      }
+    }
+  });
 });
 
 // 刷新IndexedDB
@@ -1786,3 +2406,204 @@ async function updateCurrentProfileAfterCookieChange() {
 }
 
 // extractTopLevelDomain函数已在profiles.js中定义
+
+// 创建备份
+document.getElementById('confirmBackup').addEventListener('click', async function() {
+  const isBackup = document.getElementById('backupSection').style.display !== 'none';
+  
+  if (isBackup) {
+    // 创建备份
+    const backupName = document.getElementById('backupName').value.trim();
+    if (!backupName) {
+      showAlert(languageManager.getText('please_enter_backup_name') || '请输入备份名称');
+      return;
+    }
+    
+    const backupDescription = document.getElementById('backupDescription').value.trim();
+    
+    try {
+      // 获取当前 LocalStorage 数据
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+      
+      if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+        showAlert(languageManager.getText('cannot_access_tab') || '无法访问当前标签页');
+        return;
+      }
+      
+      const result = await chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        func: () => {
+          const items = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            items[key] = localStorage.getItem(key);
+          }
+          return items;
+        }
+      });
+      
+      if (result && result[0]) {
+        await localStorageBackupManager.createBackup(currentDomain, backupName, backupDescription, result[0].result);
+        showAlert(languageManager.getText('backup_created') || '备份创建成功！', '备份成功');
+        document.getElementById('backupModal').classList.remove('show');
+        document.getElementById('backupName').value = '';
+        document.getElementById('backupDescription').value = '';
+      }
+    } catch (error) {
+      console.error('创建备份失败:', error);
+      showAlert(languageManager.getText('backup_create_failed') || '创建备份失败: ' + error.message, '创建失败');
+    }
+  } else {
+    // 恢复备份
+    await restoreSelectedBackup();
+    document.getElementById('backupModal').classList.remove('show');
+  }
+});
+
+// 显示提示对话框
+function showAlert(message, title = null, callback = null) {
+  const alertTitle = title || languageManager.getText('alert_title') || '提示';
+  
+  showCustomDialog(message, alertTitle, {
+    confirmText: languageManager.getText('ok') || '确定'
+  }).then(result => {
+    if (callback) callback(result);
+  });
+}
+
+// 显示确认对话框
+function showConfirm(message, title = null, callback = null) {
+  const confirmTitle = title || languageManager.getText('confirm_title') || '确认';
+  
+  showCustomDialog(message, confirmTitle, {
+    showCancel: true,
+    confirmText: languageManager.getText('yes') || '是',
+    cancelText: languageManager.getText('no') || '否'
+  }).then(result => {
+    if (callback) callback(result);
+  });
+}
+
+// 自定义对话框函数
+function showCustomDialog(message, title = '提示', options = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById('customDialog');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogCancel = document.getElementById('dialogCancel');
+    const dialogConfirm = document.getElementById('dialogConfirm');
+    const existingProfilesList = document.getElementById('existingProfilesList');
+
+    // 设置标题和消息
+    dialogTitle.textContent = title;
+    dialogMessage.textContent = message;
+
+    // 设置按钮文本
+    dialogConfirm.textContent = options.confirmText || '确定';
+    dialogCancel.textContent = options.cancelText || '取消';
+
+    // 控制取消按钮显示
+    if (options.showCancel) {
+      dialogCancel.style.display = 'inline-block';
+    } else {
+      dialogCancel.style.display = 'none';
+    }
+
+    // 处理配置文件列表
+    if (options.profileList) {
+      existingProfilesList.style.display = 'block';
+      existingProfilesList.innerHTML = '';
+      options.profileList.forEach(profile => {
+        const profileItem = document.createElement('div');
+        profileItem.className = 'profile-item';
+        profileItem.textContent = profile.name;
+        profileItem.style.cursor = 'pointer';
+        profileItem.style.padding = '8px';
+        profileItem.style.borderBottom = '1px solid #eee';
+        profileItem.addEventListener('click', () => {
+          dialog.classList.remove('show');
+          if (options.onProfileSelect) {
+            options.onProfileSelect(profile.name);
+          }
+          resolve(profile.name);
+        });
+        existingProfilesList.appendChild(profileItem);
+      });
+    } else {
+      existingProfilesList.style.display = 'none';
+    }
+
+    // 移除之前的事件监听器
+    const newDialogConfirm = dialogConfirm.cloneNode(true);
+    const newDialogCancel = dialogCancel.cloneNode(true);
+    const newCloseDialog = document.getElementById('closeDialog').cloneNode(true);
+
+    dialogConfirm.parentNode.replaceChild(newDialogConfirm, dialogConfirm);
+    dialogCancel.parentNode.replaceChild(newDialogCancel, dialogCancel);
+    document.getElementById('closeDialog').parentNode.replaceChild(newCloseDialog, document.getElementById('closeDialog'));
+
+    // 添加新的事件监听器
+    newDialogConfirm.addEventListener('click', () => {
+      dialog.classList.remove('show');
+      resolve(true);
+    });
+
+    newDialogCancel.addEventListener('click', () => {
+      dialog.classList.remove('show');
+      resolve(false);
+    });
+
+    newCloseDialog.addEventListener('click', () => {
+      dialog.classList.remove('show');
+      resolve(false);
+    });
+
+    // 点击背景关闭
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        dialog.classList.remove('show');
+        resolve(false);
+      }
+    });
+
+    // 显示对话框
+    dialog.classList.add('show');
+  });
+}
+
+// 显示配置文件列表对话框
+function showProfileListDialog(message, profileList, title = null, callback = null) {
+  const dialogTitle = title || languageManager.getText('select_profile') || '选择配置文件';
+
+  showCustomDialog(message, dialogTitle, {
+    showCancel: true,
+    profileList: profileList,
+    confirmText: languageManager.getText('cancel') || '取消',
+    onProfileSelect: (profileName) => {
+      if (callback) callback(profileName);
+    }
+  }).then(result => {
+    if (!result && callback) callback(null);
+  });
+}
+
+// 添加LocalStorage项目事件
+document.getElementById('addLocalStorage').addEventListener('click', function() {
+  editingItem = null;
+  editingType = 'localStorage';
+  openEditModal('', '', 'localStorage');
+});
+
+// 添加SessionStorage项目事件
+document.getElementById('addSessionStorage').addEventListener('click', function() {
+  editingItem = null;
+  editingType = 'sessionStorage';
+  openEditModal('', '', 'sessionStorage');
+});
+
+// 添加Cookie项目事件
+document.getElementById('addCookie').addEventListener('click', function() {
+  editingItem = null;
+  editingType = 'cookie';
+  openEditModal('', '', 'cookie');
+});

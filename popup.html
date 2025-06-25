@@ -7,38 +7,50 @@
 </head>
 <body>
   <div class="container">
+    <div class="scroll-container">
     <header>
-      <h1>Storage Manager Pro</h1>
+      <h1 data-i18n="title">Storage Manager Pro</h1>
       <div class="domain-info">
-        <span class="domain-label">当前域名:</span>
+        <span class="domain-label" data-i18n="domain_label">当前域名:</span>
         <span id="currentDomain" class="domain-name"></span>
       </div>
-      <!-- 新增配置文件选择器 -->
+      <!-- 语言切换 -->
+      <div class="language-switch">
+        <button id="switchLanguage" class="language-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"></path>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+          </svg>
+          <span id="languageText">EN</span>
+        </button>
+      </div>
+      <!-- 配置文件选择器 -->
       <div class="profile-selector">
         <select id="profileSelect" class="profile-dropdown">
-          <option value="">选择配置文件...</option>
+          <option value="" data-i18n="select_profile">选择配置文件...</option>
         </select>
-        <button class="profile-btn" id="saveProfile" title="保存当前配置">
+        <button class="profile-btn" id="saveProfile" data-i18n-title="save_profile" title="保存当前配置">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
             <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
         </button>
-        <button class="profile-btn" id="manageProfiles" title="管理配置文件">
+        <button class="profile-btn" id="manageProfiles" data-i18n-title="manage_profiles" title="管理配置文件">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v6m0 6v6m11-11h-6m-6 0H1"></path>
+            <path d="M12 5V3m0 18v-2M5.45 5.11L4.4 4.06m15.2 15.2l-1.05-1.05M3 12H1m22 0h-2M5.45 18.89l-1.05 1.05m15.2-15.2l-1.05 1.05M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0z"/>
+            <path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/>
           </svg>
         </button>
       </div>
     </header>
 
     <div class="tabs">
-      <button class="tab-button active" data-tab="localStorage">Local Storage</button>
-      <button class="tab-button" data-tab="sessionStorage">Session Storage</button>
-      <button class="tab-button" data-tab="cookies">Cookies</button>
-      <button class="tab-button" data-tab="indexedDB">IndexedDB</button>
+      <button class="tab-button active" data-tab="localStorage" data-i18n="tab_localStorage">本地存储空间</button>
+      <button class="tab-button" data-tab="sessionStorage" data-i18n="tab_sessionStorage">会话存储空间</button>
+      <button class="tab-button" data-tab="cookies" data-i18n="tab_cookies">Cookies</button>
+      <button class="tab-button" data-tab="indexedDB" data-i18n="tab_indexedDB">IndexedDB</button>
     </div>
 
     <div class="tab-content">
@@ -46,32 +58,18 @@
       <div id="localStorage" class="tab-panel active">
         <div class="toolbar">
           <button class="btn btn-primary" id="addLocalStorage">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            添加项目
+            <span data-i18n="add_item">添加项目</span>
           </button>
-          <button class="btn btn-danger" id="clearLocalStorage">清空全部</button>
+          <button class="btn btn-danger" id="clearLocalStorage" data-i18n="clear_all">清空全部</button>
           <!-- 新增备份按钮 -->
           <button class="btn btn-info" id="backupLocalStorage">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            备份
+            <span data-i18n="backup">备份</span>
           </button>
           <button class="btn btn-success" id="restoreLocalStorage">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            恢复
+            <span data-i18n="restore">恢复</span>
           </button>
           <div class="search-box">
-            <input type="text" id="searchLocalStorage" placeholder="搜索...">
+            <input type="text" id="searchLocalStorage" data-i18n-placeholder="search_placeholder" placeholder="搜索...">
           </div>
         </div>
         <div class="storage-list" id="localStorageList"></div>
@@ -81,15 +79,11 @@
       <div id="sessionStorage" class="tab-panel">
         <div class="toolbar">
           <button class="btn btn-primary" id="addSessionStorage">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            添加项目
+            <span data-i18n="add_item">添加项目</span>
           </button>
-          <button class="btn btn-danger" id="clearSessionStorage">清空全部</button>
+          <button class="btn btn-danger" id="clearSessionStorage" data-i18n="clear_all">清空全部</button>
           <div class="search-box">
-            <input type="text" id="searchSessionStorage" placeholder="搜索...">
+            <input type="text" id="searchSessionStorage" data-i18n-placeholder="search_placeholder" placeholder="搜索...">
           </div>
         </div>
         <div class="storage-list" id="sessionStorageList"></div>
@@ -99,30 +93,18 @@
       <div id="cookies" class="tab-panel">
         <div class="toolbar">
           <button class="btn btn-primary" id="addCookie">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            添加Cookie
+            <span data-i18n="add_cookie">添加Cookie</span>
           </button>
-          <button class="btn btn-danger" id="clearCookies">清空全部</button>
+          <button class="btn btn-danger" id="clearCookies" data-i18n="clear_all">清空全部</button>
           <!-- 新增账户切换按钮 -->
           <button class="btn btn-info" id="saveCookieProfile">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            保存账户
+            <span data-i18n="save_account">保存账户</span>
           </button>
           <button class="btn btn-success" id="switchCookieProfile">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polyline points="16 18 22 12 16 6"></polyline>
-              <polyline points="8 6 2 12 8 18"></polyline>
-            </svg>
-            切换账户
+            <span data-i18n="switch_account">切换账户</span>
           </button>
           <div class="search-box">
-            <input type="text" id="searchCookies" placeholder="搜索...">
+            <input type="text" id="searchCookies" data-i18n-placeholder="search_placeholder" placeholder="搜索...">
           </div>
         </div>
         <div class="storage-list" id="cookiesList"></div>
@@ -132,16 +114,14 @@
       <div id="indexedDB" class="tab-panel">
         <div class="toolbar">
           <button class="btn btn-primary" id="refreshIndexedDB">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path>
-            </svg>
-            刷新
+            <span data-i18n="refresh">刷新</span>
           </button>
           <div class="search-box">
-            <input type="text" id="searchIndexedDB" placeholder="搜索...">
+            <input type="text" id="searchIndexedDB" data-i18n-placeholder="search_placeholder" placeholder="搜索...">
           </div>
         </div>
         <div class="storage-list" id="indexedDBList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -150,33 +130,33 @@
   <div class="modal" id="editModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modalTitle">编辑项目</h3>
+        <h3 id="modalTitle" data-i18n="edit_item">编辑项目</h3>
         <button class="close-btn" id="closeModal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label for="editKey">键名</label>
+          <label for="editKey" data-i18n="key_label">键名</label>
           <input type="text" id="editKey" class="form-control">
         </div>
         <div class="form-group">
-          <label for="editValue">值</label>
+          <label for="editValue" data-i18n="value_label">值</label>
           <div class="format-buttons" id="formatButtons" style="display: none;">
-            <button type="button" class="format-btn" id="formatJSON">格式化JSON</button>
-            <button type="button" class="format-btn" id="minifyJSON">压缩JSON</button>
+            <button type="button" class="format-btn" id="formatJSON" data-i18n="format_json">格式化JSON</button>
+            <button type="button" class="format-btn" id="minifyJSON" data-i18n="minify_json">压缩JSON</button>
           </div>
           <textarea id="editValue" class="form-control" rows="10"></textarea>
         </div>
         <div id="cookieFields" style="display: none;">
           <div class="form-group">
-            <label for="editDomain">域名</label>
+            <label for="editDomain" data-i18n="domain_field">域名</label>
             <input type="text" id="editDomain" class="form-control">
           </div>
           <div class="form-group">
-            <label for="editPath">路径</label>
+            <label for="editPath" data-i18n="path_field">路径</label>
             <input type="text" id="editPath" class="form-control" value="/">
           </div>
           <div class="form-group">
-            <label for="editExpires">过期时间</label>
+            <label for="editExpires" data-i18n="expires_field">过期时间</label>
             <input type="datetime-local" id="editExpires" class="form-control">
           </div>
           <div class="form-group checkbox-group">
@@ -186,15 +166,21 @@
             <label>
               <input type="checkbox" id="editHttpOnly"> HttpOnly
             </label>
-            <label>
-              <input type="checkbox" id="editSameSite"> SameSite
-            </label>
+          </div>
+          <div class="form-group">
+            <label for="editSameSite" data-i18n="samesite_field">SameSite</label>
+            <select id="editSameSite" class="form-control">
+              <option value="" data-i18n="samesite_none">无</option>
+              <option value="Lax" data-i18n="samesite_lax">Lax</option>
+              <option value="Strict" data-i18n="samesite_strict">Strict</option>
+              <option value="None" data-i18n="samesite_none_value">None</option>
+            </select>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelEdit">取消</button>
-        <button class="btn btn-primary" id="saveEdit">保存</button>
+        <button class="btn btn-secondary" id="cancelEdit" data-i18n="cancel">取消</button>
+        <button class="btn btn-primary" id="saveEdit" data-i18n="save">保存</button>
       </div>
     </div>
   </div>
@@ -203,16 +189,35 @@
   <div class="modal" id="profileModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>配置文件管理</h3>
+        <h3 data-i18n="profile_management">配置文件管理</h3>
         <button class="close-btn" id="closeProfileModal">&times;</button>
       </div>
       <div class="modal-body">
+        <div class="profile-list">
+          <h4 data-i18n="existing_profiles">现有配置文件</h4>
+          <div id="profileList"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelProfile" data-i18n="close">关闭</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 保存配置文件弹窗 -->
+  <div class="modal" id="saveProfileModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 data-i18n="save_profile">保存当前配置</h3>
+        <button class="close-btn" id="closeSaveProfileModal">&times;</button>
+      </div>
+      <div class="modal-body">
         <div class="form-group">
-          <label for="profileName">配置文件名称</label>
-          <input type="text" id="profileName" class="form-control" placeholder="输入配置文件名称">
+          <label for="profileName" data-i18n="profile_name">配置文件名称</label>
+          <input type="text" id="profileName" class="form-control" data-i18n-placeholder="profile_name_placeholder" placeholder="输入配置文件名称">
         </div>
         <div class="form-group">
-          <label>包含内容</label>
+          <label data-i18n="include_content">包含内容</label>
           <div class="checkbox-group">
             <label>
               <input type="checkbox" id="includeLocalStorage" checked> LocalStorage
@@ -222,14 +227,10 @@
             </label>
           </div>
         </div>
-        <div class="profile-list">
-          <h4>现有配置文件</h4>
-          <div id="profileList"></div>
-        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelProfile">关闭</button>
-        <button class="btn btn-primary" id="saveNewProfile">保存配置</button>
+        <button class="btn btn-secondary" id="cancelSaveProfile" data-i18n="cancel">取消</button>
+        <button class="btn btn-primary" id="saveNewProfile" data-i18n="save_config">保存配置</button>
       </div>
     </div>
   </div>
@@ -238,28 +239,28 @@
   <div class="modal" id="backupModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="backupModalTitle">LocalStorage 备份</h3>
+        <h3 id="backupModalTitle" data-i18n="backup_title">LocalStorage 备份</h3>
         <button class="close-btn" id="closeBackupModal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="backup-section" id="backupSection">
           <div class="form-group">
-            <label for="backupName">备份名称</label>
-            <input type="text" id="backupName" class="form-control" placeholder="输入备份名称">
+            <label for="backupName" data-i18n="backup_name">备份名称</label>
+            <input type="text" id="backupName" class="form-control" data-i18n-placeholder="backup_name_placeholder" placeholder="输入备份名称">
           </div>
           <div class="form-group">
-            <label for="backupDescription">备份描述</label>
-            <textarea id="backupDescription" class="form-control" rows="3" placeholder="可选的备份描述"></textarea>
+            <label for="backupDescription" data-i18n="backup_description">备份描述</label>
+            <textarea id="backupDescription" class="form-control" rows="3" data-i18n-placeholder="backup_description_placeholder" placeholder="可选的备份描述"></textarea>
           </div>
         </div>
         <div class="restore-section" id="restoreSection" style="display: none;">
-          <h4>选择要恢复的备份</h4>
+          <h4 data-i18n="select_backup">选择要恢复的备份</h4>
           <div id="backupList" class="backup-list"></div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelBackup">取消</button>
-        <button class="btn btn-primary" id="confirmBackup">确认</button>
+        <button class="btn btn-secondary" id="cancelBackup" data-i18n="cancel">取消</button>
+        <button class="btn btn-primary" id="confirmBackup" data-i18n="confirm">确认</button>
       </div>
     </div>
   </div>
@@ -268,33 +269,52 @@
   <div class="modal" id="accountModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="accountModalTitle">Cookie 账户管理</h3>
+        <h3 id="accountModalTitle" data-i18n="account_management">Cookie 账户管理</h3>
         <button class="close-btn" id="closeAccountModal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="account-section" id="saveAccountSection">
           <div class="form-group">
-            <label for="accountName">账户名称</label>
-            <input type="text" id="accountName" class="form-control" placeholder="输入账户名称（如：主账号、测试账号）">
+            <label for="accountName" data-i18n="account_name">账户名称</label>
+            <input type="text" id="accountName" class="form-control" data-i18n-placeholder="account_name_placeholder" placeholder="输入账户名称（如：主账号、测试账号）">
           </div>
           <div class="form-group">
-            <label for="accountDescription">账户描述</label>
-            <textarea id="accountDescription" class="form-control" rows="3" placeholder="可选的账户描述"></textarea>
+            <label for="accountDescription" data-i18n="account_description">账户描述</label>
+            <textarea id="accountDescription" class="form-control" rows="3" data-i18n-placeholder="account_description_placeholder" placeholder="可选的账户描述"></textarea>
           </div>
         </div>
         <div class="switch-section" id="switchAccountSection" style="display: none;">
-          <h4>选择要切换的账户</h4>
+          <h4 data-i18n="select_account">选择要切换的账户</h4>
           <div id="accountList" class="account-list"></div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelAccount">取消</button>
-        <button class="btn btn-primary" id="confirmAccount">确认</button>
+        <button class="btn btn-secondary" id="cancelAccount" data-i18n="cancel">取消</button>
+        <button class="btn btn-primary" id="confirmAccount" data-i18n="save">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义对话框 -->
+  <div class="modal" id="customDialog">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="dialogTitle" data-i18n="alert_title">提示</h3>
+        <button class="close-btn" id="closeDialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="dialogMessage"></p>
+        <div id="existingProfilesList" style="display: none; max-height: 200px; overflow-y: auto; margin-top: 10px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="dialogCancel" data-i18n="cancel" style="display: none;">取消</button>
+        <button class="btn btn-primary" id="dialogConfirm" data-i18n="ok">确定</button>
       </div>
     </div>
   </div>
 
   <script src="profiles.js"></script>
+  <script src="languages.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

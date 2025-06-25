@@ -1,5 +1,7 @@
 # Storage Manager Pro
 
+中文版 | [English](README_EN.md)
+
 Storage Manager Pro 是一款强大的 Chrome 扩展，用于管理网页的 localStorage、sessionStorage、Cookies 和 IndexedDB。
 
 ## 最新更新 (2025.06)
@@ -138,3 +140,17 @@ Storage Manager Pro 是一款强大的 Chrome 扩展，用于管理网页的 loc
 - 该扩展不会收集或传输您的数据到任何外部服务器
 - 所有操作和数据都保存在浏览器本地存储中
 - 扩展仅在您授权的网站上运行
+
+## 版本信息
+
+- **当前版本**: 1.1.10
+- **Manifest 版本**: 3
+- **兼容性**: 支持 Manifest V3 的 Chrome 浏览器
+
+## 许可证
+
+本项目为开源项目，具体许可条款请参考许可证文件。
+
+## 支持
+
+如果您遇到任何问题或有改进建议，请随时联系我们或提交问题报告。

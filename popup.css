@@ -4,12 +4,13 @@
   box-sizing: border-box;
 }
 
-body {
+htmlbody {
   width: 600px;
   min-height: 500px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: #f5f7fa;
   color: #2c3e50;
+  overflow: hidden;
 }
 
 .container {
@@ -17,6 +18,8 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* border-radius: 8px; */
+  overflow: hidden;
 }
 
 header {
@@ -216,6 +219,14 @@ h1 {
   font-size: 12px;
   cursor: pointer;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .edit-btn {
@@ -284,11 +295,13 @@ h1 {
 
 .modal-content {
   background: white;
+  margin: 10% auto;
+  width: 80%;
+  max-width: 500px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  position: relative;
   border-radius: 8px;
-  width: 500px;
-  max-height: 80vh;
   overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
 }
@@ -458,16 +471,16 @@ textarea.form-control {
 
 /* 滚动条样式 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #764ba2;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c0c4cc;
+  background: #fff;
   border-radius: 4px;
 }
 
@@ -819,4 +832,187 @@ input:disabled,
 select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.language-switch {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.language-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.language-btn svg {
+  margin-right: 4px;
+}
+
+.language-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* 自定义弹窗样式 */
+.custom-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.custom-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.custom-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.custom-modal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.custom-modal .modal-body {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.custom-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0;
+  gap: 10px;
+}
+
+.custom-modal .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #888;
+  cursor: pointer;
+}
+
+.custom-modal .close-btn:hover {
+  color: #555;
+}
+
+/* 修复Cookie按钮样式 */
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.item-key {
+  font-weight: 600;
+  color: #2c3e50;
+  word-break: break-all;
+}
+
+.item-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.item-value {
+  font-size: 13px;
+  color: #606266;
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 4px;
+  word-break: break-all;
+  max-height: 100px;
+  overflow: hidden;
+  position: relative;
+}
+
+.item-meta {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cookie-flag {
+  background: #e0e6ed;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* 统一按钮样式 */
+.action-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.edit-btn {
+  background: #67c23a;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #5daf34;
+}
+
+.delete-btn {
+  background: #f56565;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #e53e3e;
 }
