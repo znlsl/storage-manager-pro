@@ -6,14 +6,17 @@
 
 ## ✨ **Core Advantages**
 
-### 🎯 **Smart JSON Processing**
+### 🎯 **Smart Data Processing**
 - **One-Click JSON Formatting** - Automatically beautify complex JSON data for better readability
 - **Intelligent Compression** - Quickly compress JSON data to save storage space
-- **Syntax Highlighting** - Clear JSON structure display for quick issue identification
+- **Base64 Encoding/Decoding** - Support Base64 format encoding and decoding for binary data
+- **UTF-8 Encoding/Decoding** - Handle Unicode character encoding, support multilingual text
+- **Syntax Highlighting** - Clear data structure display for quick issue identification
 
 ### 🔧 **Professional Editing Experience**
 - **Resizable Editor** - Adjustable text area size to accommodate different content lengths
 - **Real-time Preview** - Instant effect viewing while editing
+- **Pin Feature** - Pin popup to keep it open for improved operation efficiency
 - **Batch Operations** - Support for quick clear, batch delete, and other efficient operations
 
 ### 💾 **Powerful Data Management**
@@ -35,21 +38,16 @@
 
 ### 💡 **Core Feature Demo**
 
-#### 📝 **JSON Data Processing**
+#### 📝 **Multi-Format Data Processing**
 ```javascript
-// Raw data (compressed format)
-{"user":{"name":"John","settings":{"theme":"dark","lang":"en"}}}
+// JSON Formatting
+{"user":{"name":"John"}} → Beautified display
 
-// After one-click formatting
-{
-  "user": {
-    "name": "John",
-    "settings": {
-      "theme": "dark",
-      "lang": "en"
-    }
-  }
-}
+// Base64 Encoding/Decoding
+"Hello World" ↔ "SGVsbG8gV29ybGQ="
+
+// UTF-8 Encoding/Decoding
+"Hello" ↔ "48 65 6c 6c 6f"
 ```
 
 #### 🔄 **Profile Management**

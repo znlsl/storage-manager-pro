@@ -9,21 +9,29 @@
   <div class="container">
     <div class="scroll-container">
     <header>
-      <h1 data-i18n="title">Storage Manager Pro</h1>
+      <div class="header-top">
+        <h1 data-i18n="title">Storage Manager Pro</h1>
+        <div class="header-controls">
+          <!-- Pin按钮 -->
+          <button id="pinPopup" class="pin-btn" data-i18n-title="pin_popup" title="固定弹窗">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+            </svg>
+          </button>
+          <!-- 语言切换 -->
+          <button id="switchLanguage" class="language-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"></path>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+            </svg>
+            <span id="languageText">EN</span>
+          </button>
+        </div>
+      </div>
       <div class="domain-info">
         <span class="domain-label" data-i18n="domain_label">当前域名:</span>
         <span id="currentDomain" class="domain-name"></span>
-      </div>
-      <!-- 语言切换 -->
-      <div class="language-switch">
-        <button id="switchLanguage" class="language-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"></path>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-          </svg>
-          <span id="languageText">EN</span>
-        </button>
       </div>
       <!-- 配置文件选择器 -->
       <div class="profile-selector">

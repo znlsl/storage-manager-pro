@@ -4,6 +4,7 @@ let editingItem = null;
 let editingType = '';
 let selectedBackupId = null;
 let selectedAccountId = null;
+let isPinned = false;
 
 // 初始化默认配置文件
 async function initializeDefaultProfile() {
@@ -1061,6 +1062,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     await initializeProfileSelector();
     await initializeDefaultProfile();
     await loadStorageData();
+
+    // 初始化Pin功能
+    initializePinFeature();
     
     // 点击标签页切换
     document.querySelectorAll('.tab-button').forEach(button => {
@@ -1104,6 +1108,54 @@ function showErrorMessage(message) {
   
   // 插入到内容顶部
   container.insertBefore(errorDiv, container.firstChild);
+}
+
+// 显示成功信息
+function showSuccessMessage(message) {
+  showAlert(message, languageManager.getText('success') || '成功');
+}
+
+// Pin功能实现
+function initializePinFeature() {
+  const pinBtn = document.getElementById('pinPopup');
+
+  pinBtn.addEventListener('click', function() {
+    isPinned = !isPinned;
+    updatePinButton();
+
+    if (isPinned) {
+      // 固定弹窗 - 阻止默认的关闭行为
+      document.body.style.pointerEvents = 'auto';
+      // 可以添加其他固定逻辑
+      console.log('弹窗已固定');
+    } else {
+      // 取消固定
+      document.body.style.pointerEvents = '';
+      console.log('弹窗已取消固定');
+    }
+  });
+}
+
+// 更新Pin按钮状态
+function updatePinButton() {
+  const pinBtn = document.getElementById('pinPopup');
+  const pinIcon = pinBtn.querySelector('svg');
+
+  if (isPinned) {
+    pinBtn.classList.add('pinned');
+    pinBtn.title = languageManager.getText('unpin_popup') || '取消固定';
+    // 更改图标为已固定状态
+    pinIcon.innerHTML = `
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"></path>
+    `;
+  } else {
+    pinBtn.classList.remove('pinned');
+    pinBtn.title = languageManager.getText('pin_popup') || '固定弹窗';
+    // 恢复原始图标
+    pinIcon.innerHTML = `
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+    `;
+  }
 }
 
 // 禁用控件
@@ -1831,22 +1883,42 @@ function openEditModal(key, value, type, cookieData = null) {
     cookieFields.style.display = 'none';
   }
   
-  // 添加格式化和压缩JSON按钮
+  // 添加格式化工具栏
   const formatSection = document.getElementById('formatSection') || document.createElement('div');
   formatSection.id = 'formatSection';
   formatSection.style.marginTop = '10px';
   formatSection.style.marginBottom = '15px'; // 增加底部间距，避免贴近操作按钮
   formatSection.innerHTML = `
-    <button id="formatJson" class="btn btn-sm" data-i18n="format_json">格式化JSON</button>
-    <button id="minifyJson" class="btn btn-sm" data-i18n="minify_json">压缩JSON</button>
+    <div class="format-toolbar">
+      <div class="format-group">
+        <button id="formatJson" class="btn btn-sm format-btn" data-i18n="format_json">格式化JSON</button>
+        <button id="minifyJson" class="btn btn-sm format-btn" data-i18n="minify_json">压缩JSON</button>
+      </div>
+      <div class="format-group">
+        <button id="encodeBase64" class="btn btn-sm format-btn" data-i18n="encode_base64">Base64编码</button>
+        <button id="decodeBase64" class="btn btn-sm format-btn" data-i18n="decode_base64">Base64解码</button>
+      </div>
+      <div class="format-group">
+        <button id="encodeUtf8" class="btn btn-sm format-btn" data-i18n="encode_utf8">UTF-8编码</button>
+        <button id="decodeUtf8" class="btn btn-sm format-btn" data-i18n="decode_utf8">UTF-8解码</button>
+      </div>
+    </div>
   `;
-  
+
   // 应用多语言翻译
   if (languageManager) {
-    formatSection.querySelector('[data-i18n="format_json"]').textContent = 
+    formatSection.querySelector('[data-i18n="format_json"]').textContent =
       languageManager.getText('format_json');
-    formatSection.querySelector('[data-i18n="minify_json"]').textContent = 
+    formatSection.querySelector('[data-i18n="minify_json"]').textContent =
       languageManager.getText('minify_json');
+    formatSection.querySelector('[data-i18n="encode_base64"]').textContent =
+      languageManager.getText('encode_base64');
+    formatSection.querySelector('[data-i18n="decode_base64"]').textContent =
+      languageManager.getText('decode_base64');
+    formatSection.querySelector('[data-i18n="encode_utf8"]').textContent =
+      languageManager.getText('encode_utf8');
+    formatSection.querySelector('[data-i18n="decode_utf8"]').textContent =
+      languageManager.getText('decode_utf8');
   }
   
   // 如果是localStorage或sessionStorage，显示格式化按钮
@@ -1862,18 +1934,98 @@ function openEditModal(key, value, type, cookieData = null) {
       try {
         const jsonObj = JSON.parse(valueInput.value);
         valueInput.value = JSON.stringify(jsonObj, null, 2);
+        showSuccessMessage(languageManager.getText('format_json') + ' ' + (languageManager.getText('success') || '成功'));
       } catch (e) {
-        alert('不是有效的JSON格式');
+        showErrorMessage(languageManager.getText('invalid_json') || '不是有效的JSON格式');
       }
     };
-    
+
     // 绑定压缩按钮事件
     document.getElementById('minifyJson').onclick = function() {
       try {
         const jsonObj = JSON.parse(valueInput.value);
         valueInput.value = JSON.stringify(jsonObj);
+        showSuccessMessage(languageManager.getText('minify_json') + ' ' + (languageManager.getText('success') || '成功'));
       } catch (e) {
-        alert('不是有效的JSON格式');
+        showErrorMessage(languageManager.getText('invalid_json') || '不是有效的JSON格式');
+      }
+    };
+
+    // 绑定Base64编码按钮事件
+    document.getElementById('encodeBase64').onclick = function() {
+      try {
+        const text = valueInput.value;
+        if (!text) {
+          showErrorMessage(languageManager.getText('empty_content') || '内容不能为空');
+          return;
+        }
+        const encoded = btoa(unescape(encodeURIComponent(text)));
+        valueInput.value = encoded;
+        showSuccessMessage(languageManager.getText('base64_encode_success') || 'Base64编码成功');
+      } catch (e) {
+        showErrorMessage(languageManager.getText('encoding_error') || '编码错误: ' + e.message);
+      }
+    };
+
+    // 绑定Base64解码按钮事件
+    document.getElementById('decodeBase64').onclick = function() {
+      try {
+        const text = valueInput.value;
+        if (!text) {
+          showErrorMessage(languageManager.getText('empty_content') || '内容不能为空');
+          return;
+        }
+        // 验证Base64格式
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text)) {
+          showErrorMessage(languageManager.getText('invalid_base64') || '无效的Base64格式');
+          return;
+        }
+        const decoded = decodeURIComponent(escape(atob(text)));
+        valueInput.value = decoded;
+        showSuccessMessage(languageManager.getText('base64_decode_success') || 'Base64解码成功');
+      } catch (e) {
+        showErrorMessage(languageManager.getText('invalid_base64') || '无效的Base64格式');
+      }
+    };
+
+    // 绑定UTF-8编码按钮事件
+    document.getElementById('encodeUtf8').onclick = function() {
+      try {
+        const text = valueInput.value;
+        if (!text) {
+          showErrorMessage(languageManager.getText('empty_content') || '内容不能为空');
+          return;
+        }
+        const encoded = Array.from(new TextEncoder().encode(text))
+          .map(byte => byte.toString(16).padStart(2, '0'))
+          .join(' ');
+        valueInput.value = encoded;
+        showSuccessMessage(languageManager.getText('utf8_encode_success') || 'UTF-8编码成功');
+      } catch (e) {
+        showErrorMessage(languageManager.getText('encoding_error') || '编码错误: ' + e.message);
+      }
+    };
+
+    // 绑定UTF-8解码按钮事件
+    document.getElementById('decodeUtf8').onclick = function() {
+      try {
+        const text = valueInput.value.trim();
+        if (!text) {
+          showErrorMessage(languageManager.getText('empty_content') || '内容不能为空');
+          return;
+        }
+        // 验证十六进制格式
+        const hexPattern = /^([0-9a-fA-F]{2}(\s+|$))+$/;
+        if (!hexPattern.test(text)) {
+          showErrorMessage(languageManager.getText('invalid_utf8') || '无效的UTF-8十六进制格式');
+          return;
+        }
+        const bytes = text.split(/\s+/).filter(hex => hex).map(hex => parseInt(hex, 16));
+        const decoded = new TextDecoder().decode(new Uint8Array(bytes));
+        valueInput.value = decoded;
+        showSuccessMessage(languageManager.getText('utf8_decode_success') || 'UTF-8解码成功');
+      } catch (e) {
+        showErrorMessage(languageManager.getText('invalid_utf8') || '无效的UTF-8格式');
       }
     };
   } else if (document.getElementById('formatSection')) {
