@@ -2,155 +2,110 @@
 
 [中文版](README.md) | English
 
-Storage Manager Pro is a powerful Chrome extension for managing web page localStorage, sessionStorage, Cookies, and IndexedDB.
+🚀 **Professional Browser Storage Management Tool** - A powerful Chrome extension designed for developers and advanced users
 
-## Latest Updates (June 2025)
+## ✨ **Core Advantages**
 
-- **UI Optimization**:
-  - Fixed the issue where confirm and cancel buttons were out of bounds and unclickable when editing localStorage
-  - Optimized cookie editing interface, resolved layout issues with confirm/cancel buttons being too close to edges
-  - Improved modal display to ensure buttons are properly visible across different screen sizes
-  - Optimized button text centering
-  - Enhanced editing area user experience with resizable text areas
+### 🎯 **Smart JSON Processing**
+- **One-Click JSON Formatting** - Automatically beautify complex JSON data for better readability
+- **Intelligent Compression** - Quickly compress JSON data to save storage space
+- **Syntax Highlighting** - Clear JSON structure display for quick issue identification
 
-## Features
+### 🔧 **Professional Editing Experience**
+- **Resizable Editor** - Adjustable text area size to accommodate different content lengths
+- **Real-time Preview** - Instant effect viewing while editing
+- **Batch Operations** - Support for quick clear, batch delete, and other efficient operations
 
-- View, edit, add, and delete LocalStorage items
-- View, edit, add, and delete SessionStorage items
-- View, edit, add, and delete Cookies
-- View IndexedDB database structure
-- Backup and restore LocalStorage data
-- Save and switch Cookie account configurations
-- Create and manage website profiles
-- Quick search for storage items
+### 💾 **Powerful Data Management**
+- **Profile System** - Save and switch complete configurations for different websites
+- **Cookie Account Management** - Easily switch between different login states
+- **LocalStorage Backup** - Data security guaranteed with one-click recovery support
 
-## User Guide
+### 🔍 **Efficient Search**
+- **Real-time Search** - Quickly locate target data items
+- **Multi-Storage Support** - Unified management of LocalStorage, SessionStorage, Cookies, IndexedDB
 
-### After installing the extension, you can:
+## 🎨 **Interface Features**
 
-1. **View Storage Data**
-   - Open the webpage you want to inspect
-   - Click the extension icon in the Chrome toolbar
-   - LocalStorage data for the current webpage is displayed by default
-   - Click the tabs at the top to switch between different storage types
+- **Modern UI Design** - Clean and beautiful user interface
+- **Responsive Layout** - Perfect adaptation to various screen sizes
+- **Intuitive Operations** - WYSIWYG editing experience
 
-2. **Edit Storage Data**
-   - Click the "Edit" button on the right side of any storage item
-   - Modify the key name and value in the popup edit window
-   - For Cookies, you can also edit domain, path, expiration time, and other attributes
-   - Click the "Save" button to apply changes
+## 🚀 **Quick Start**
 
-3. **Add New Storage Items**
-   - Click the "Add Item" button in the corresponding tab
-   - Enter the key name and value in the popup window
-   - Click the "Save" button
+### 💡 **Core Feature Demo**
 
-4. **Delete Storage Items**
-   - Click the "Delete" button on the right side of any storage item
-   - Or use the "Clear All" button to delete all items
+#### 📝 **JSON Data Processing**
+```javascript
+// Raw data (compressed format)
+{"user":{"name":"John","settings":{"theme":"dark","lang":"en"}}}
 
-5. **Backup and Restore LocalStorage**
-   - In the LocalStorage tab, click the "Backup" button
-   - Enter backup name and description, then click "Confirm"
-   - To restore, click the "Restore" button, select the backup to restore, and click "Confirm"
+// After one-click formatting
+{
+  "user": {
+    "name": "John",
+    "settings": {
+      "theme": "dark",
+      "lang": "en"
+    }
+  }
+}
+```
 
-6. **Cookie Account Management**
-   - In the Cookies tab, click the "Save Account" button
-   - Enter account name and description, then click "Confirm"
-   - To switch accounts, click the "Switch Account" button, select the account to switch to, and click "Confirm"
+#### 🔄 **Profile Management**
+- **Save Configuration** - One-click save of all storage data for current website
+- **Quick Switch** - Seamless switching between different configurations
+- **Batch Recovery** - Simultaneously restore LocalStorage and Cookies
 
-7. **Profile Management**
-   - Click the "Save" icon at the top to save the current configuration
-   - Enter profile name and select content to include (LocalStorage and/or Cookies)
-   - Click the "Save Profile" button
-   - Use the dropdown menu at the top to switch between different profiles
-   - Click the "Manage" icon to view, load, or delete saved profiles
+#### 👤 **Cookie Account Switching**
+- Save Cookie configurations for different login states
+- One-click switch between test and production accounts
+- Support cross-domain account management
 
-8. **Search Function**
-   - Use the search box in each tab to quickly find the items you need
+## 📖 **User Guide**
 
-## Manual Packaging and Chrome Extension Import
+### Basic Operations
+1. **Install Extension** → Click toolbar icon → Instantly view current page storage data
+2. **Edit Data** → Click "Edit" button → Use formatting tools → Save changes
+3. **Search & Locate** → Enter keywords → Quickly find target data items
 
-If you want to package this extension yourself and install it in Chrome browser, please follow these steps:
+### Advanced Features
+- **Backup Important Data** - Prevent accidental loss with named backups with descriptions
+- **Profile Management** - Create dedicated configurations for different environments
+- **Batch Operations** - Quickly clean test data or reset states
 
-### Prepare Files
+## 📦 **Installation**
 
-Make sure you have the following files:
-- manifest.json (extension configuration file)
-- popup.html (extension popup interface)
-- popup.js (extension main functionality script)
-- popup.css (extension style file)
-- background.js (extension background script)
-- content.js (extension content script)
-- profiles.js (extension profile management script)
-- icons/ (icon folder containing icon16.png, icon48.png, icon128.png)
+### Developer Installation
+1. Download project files to local directory
+2. Open Chrome extensions page (`chrome://extensions/`)
+3. Enable "Developer mode"
+4. Click "Load unpacked", select project folder
+5. Extension icon appears in toolbar - installation complete!
 
-### Packaging Steps
+## ❓ **FAQ**
 
-1. **Download Project Files**
-   - Ensure all necessary files are ready and placed in one folder
+**Q: What data types does JSON formatting support?**
+A: Supports all standard JSON formats, including nested objects, arrays, and other complex structures with automatic detection and beautification.
 
-2. **Open Chrome Extensions Page**
-   - Enter `chrome://extensions/` in the Chrome address bar
-   - Or select "More Tools" → "Extensions" from the Chrome menu
+**Q: What can be included in profiles?**
+A: You can selectively include LocalStorage data and Cookies, with support for cross-domain configuration management.
 
-3. **Enable Developer Mode**
-   - Turn on the "Developer mode" switch in the top right corner of the extensions page
+**Q: How is data security ensured?**
+A: All data is stored only in your local browser, never uploaded to any servers, completely protecting your privacy.
 
-4. **Import Extension**
-   Method 1: Load unpacked extension directly
-   - Click the "Load unpacked" button on the page
-   - Select the folder containing all extension files
-   - Chrome will immediately load and enable the extension
+## 🔒 **Privacy Protection**
 
-   Method 2: Package as .crx file
-   - Click the "Pack extension" button on the page
-   - In the "Extension root directory" field, select the folder containing all extension files
-   - Click the "Pack extension" button
-   - Chrome will create a .crx file (extension installation package) and a .pem file (private key file)
-   - Drag and drop the .crx file to Chrome's extensions page to install
+- ✅ 100% local storage, no data uploads
+- ✅ Runs only on authorized websites
+- ✅ Open source and transparent, code is auditable
 
-5. **Verify Installation**
-   - The extension icon should appear in the Chrome toolbar
-   - Click the icon to check if the functionality works properly
+## 📊 **Technical Specifications**
 
-### Notes
+- **Version**: 1.1.10 | **Architecture**: Manifest V3 | **Compatible**: Chrome 88+
 
-- Save the private key (.pem) file, which is used for updating the extension
-- If you modify the extension code, you need to click the "Reload" button on the extensions page or repackage
-- Extensions loaded in developer mode will show a warning every time Chrome starts, which is normal
-- Chrome security policies may restrict certain features, such as cross-origin requests
+---
 
-## FAQ
-
-- **Q: Why can't some websites' Cookies be edited?**
-  A: For security reasons, certain Cookies (such as those marked as HttpOnly) cannot be directly edited through extensions.
-
-- **Q: Why can IndexedDB data only be viewed but not edited?**
-  A: Due to the complex structure of IndexedDB, this extension currently only supports viewing its structure, not editing functionality.
-
-- **Q: Can profiles be synchronized across devices?**
-  A: By default, profiles are stored locally. For cross-device use, you can export and manually import them.
-
-- **Q: How to improve the experience when editing large amounts of JSON data?**
-  A: Use the "Format JSON" and "Compress JSON" buttons in the popup to more conveniently view and edit JSON data. Additionally, the edit box supports resizing and can be adjusted according to content length.
-
-## Privacy and Security Notice
-
-- This extension does not collect or transmit your data to any external servers
-- All operations and data are saved in the browser's local storage
-- The extension only runs on websites you authorize
-
-## Version Information
-
-- **Current Version**: 1.1.10
-- **Manifest Version**: 3
-- **Compatible with**: Chrome browsers supporting Manifest V3
-
-## License
-
-This project is open source. Please refer to the license file for specific license terms.
-
-## Support
-
-If you encounter any issues or have suggestions for improvement, please feel free to contact us or submit an issue report.
+⭐ **If this tool helps you, please give us a Star!**
+🐛 **Found a bug?** [Submit Issue](https://github.com/jasonwong1991/storage-manager-pro/issues)
+💡 **Have suggestions?** [Join Discussion](https://github.com/jasonwong1991/storage-manager-pro/discussions)
