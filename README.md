@@ -1,109 +1,123 @@
+
 # Storage Manager Pro
 
-中文版 | [English](README_EN.md)
+English | [中文版](README_CN.md)
 
-🚀 **专业级浏览器存储管理工具** - 为开发者和高级用户打造的强大 Chrome 扩展
+🚀 **Professional Browser Storage Management Tool** - Modern Chrome extension rebuilt with React + TypeScript + Vite
 
-## ✨ 核心优势
+[![Version](https://img.shields.io/badge/version-2.1.2-blue.svg)](https://github.com/your-repo/storage-manager-pro)
+[![Manifest](https://img.shields.io/badge/manifest-v3-green.svg)](https://developer.chrome.com/docs/extensions/mv3/)
+[![React](https://img.shields.io/badge/react-18+-61dafb.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-5+-3178c6.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/vite-5+-646cff.svg)](https://vitejs.dev/)
 
-### 🎯 **智能数据处理**
-- **一键格式化JSON** - 自动美化复杂的JSON数据，提升可读性
-- **智能压缩** - 快速压缩JSON数据，节省存储空间
-- **Base64编码/解码** - 支持Base64格式的编码和解码，处理二进制数据
-- **UTF-8编码/解码** - 处理Unicode字符编码，支持多语言文本
-- **语法高亮** - 清晰展示数据结构，快速定位问题
+📋 **[View Changelog](CHANGELOG.md)** | 🚀 **[Quick Start](#-quick-start)** | 📖 **[User Guide](#-user-guide)**
 
-### 🔧 **专业编辑体验**
-- **可调整编辑器** - 支持文本区域大小调整，适应不同内容长度
-- **实时预览** - 编辑时即时查看效果
-- **Pin固定功能** - 固定弹窗保持打开状态，提升操作效率
-- **批量操作** - 支持快速清空、批量删除等高效操作
+## ✨ **Core Advantages**
 
-### 💾 **强大的数据管理**
-- **配置文件系统** - 保存和切换不同网站的完整配置
-- **Cookie账户管理** - 轻松切换不同登录状态
-- **LocalStorage备份** - 数据安全有保障，支持一键恢复
+### 🎯 **Smart Data Processing**
+- **One-Click JSON Formatting** - Automatically beautify complex JSON data for better readability
+- **Intelligent Compression** - Quickly compress JSON data to save storage space
+- **Base64 Encoding/Decoding** - Support Base64 format encoding and decoding for binary data
+- **UTF-8 Encoding/Decoding** - Handle Unicode character encoding, support multilingual text
+- **Syntax Highlighting** - Clear data structure display for quick issue identification
 
-### 🔍 **高效查找**
-- **实时搜索** - 快速定位目标数据项
-- **多存储类型支持** - 统一管理 LocalStorage、SessionStorage、Cookies、IndexedDB
+### 🔧 **Professional Editing Experience**
+- **Resizable Editor** - Adjustable text area size to accommodate different content lengths
+- **Real-time Preview** - Instant effect viewing while editing
+- **Pin Feature** - Pin popup to keep it open for improved operation efficiency
+- **Batch Operations** - Support for quick clear, batch delete, and other efficient operations
 
-## 🎨 **界面特色**
+### 💾 **Powerful Data Management**
+- **Profile System** - Save and switch complete configurations for different websites
+- **Cookie Account Management** - Easily switch between different login states
+- **LocalStorage Backup** - Data security guaranteed with one-click recovery support
 
-- **现代化UI设计** - 简洁美观的用户界面
-- **响应式布局** - 完美适配各种屏幕尺寸
-- **直观操作** - 所见即所得的编辑体验
+### 🔍 **Efficient Search**
+- **Real-time Search** - Quickly locate target data items
+- **Multi-Storage Support** - Unified management of LocalStorage, SessionStorage, Cookies, IndexedDB
 
-## 🚀 **快速开始**
+## 🎨 **Interface Features**
 
-### 💡 **核心功能演示**
+- **Modern UI Design** - Clean and beautiful user interface
+![主界面](./screenshot/image1.png)
+![主题切换](./screenshot/image2.png)
+- **Responsive Layout** - Perfect adaptation to various screen sizes
+- **Intuitive Operations** - WYSIWYG editing experience
+![JSON格式化](./screenshot/image3.png)
+![全屏编辑](./screenshot/image4.png)
 
-#### 📝 **多格式数据处理**
+## 🚀 **Quick Start**
+
+### 💡 **Core Feature Demo**
+
+#### 📝 **Multi-Format Data Processing**
 ```javascript
-// JSON格式化
-{"user":{"name":"张三"}} → 美化显示
+// JSON Formatting
+{"user":{"name":"John"}} → Beautified display
 
-// Base64编码/解码
+// Base64 Encoding/Decoding
 "Hello World" ↔ "SGVsbG8gV29ybGQ="
 
-// UTF-8编码/解码
-"你好" ↔ "e4 bd a0 e5 a5 bd"
+// UTF-8 URL Encoding/Decoding
+"你好" ↔ "%E4%BD%A0%E5%A5%BD"
 ```
 
-#### 🔄 **配置文件管理**
-- **保存配置** - 一键保存当前网站的所有存储数据
-- **快速切换** - 在不同配置间无缝切换
-- **批量恢复** - 同时恢复 LocalStorage 和 Cookies
+#### 🔄 **Profile Management**
+- **Save Configuration** - One-click save of all storage data for current website
+- **Quick Switch** - Seamless switching between different configurations
+- **Batch Recovery** - Simultaneously restore LocalStorage and Cookies
 
-#### 👤 **Cookie账户切换**
-- 保存不同登录状态的 Cookie 配置
-- 一键切换测试账户和正式账户
-- 支持跨域名的账户管理
+#### 👤 **Cookie Account Switching**
+- Save Cookie configurations for different login states
+- One-click switch between test and production accounts
+- Support cross-domain account management
 
-## 📖 **使用指南**
+## 📖 **User Guide**
 
-### 基础操作
-1. **安装扩展** → 点击工具栏图标 → 立即查看当前页面存储数据
-2. **编辑数据** → 点击"编辑"按钮 → 使用格式化工具 → 保存更改
-3. **搜索定位** → 输入关键词 → 快速找到目标数据项
+### Basic Operations
+1. **Install Extension** → Click toolbar icon → Instantly view current page storage data
+2. **Edit Data** → Click "Edit" button → Use formatting tools → Save changes
+3. **Search & Locate** → Enter keywords → Quickly find target data items
 
-### 高级功能
-- **备份重要数据** - 防止意外丢失，支持带描述的命名备份
-- **配置文件管理** - 为不同环境创建专用配置
-- **批量操作** - 快速清理测试数据或重置状态
+### Advanced Features
+- **Backup Important Data** - Prevent accidental loss with named backups with descriptions
+- **Profile Management** - Create dedicated configurations for different environments
+- **Batch Operations** - Quickly clean test data or reset states
 
-## 📦 **安装方式**
+## 📦 **Installation**
 
-### 开发者安装
-1. 下载项目文件到本地
-2. 打开 Chrome 扩展页面 (`chrome://extensions/`)
-3. 启用"开发者模式"
-4. 点击"加载已解压的扩展程序"，选择项目文件夹
-5. 扩展图标出现在工具栏，安装完成！
+### Developer Installation
+1. Download project files to local directory
+2. Open Chrome extensions page (`chrome://extensions/`)
+3. Enable "Developer mode"
+4. Click "Load unpacked", select project folder
+5. Extension icon appears in toolbar - installation complete!
 
-## ❓ **常见问题**
+## ❓ **FAQ**
 
-**Q: JSON格式化功能支持哪些数据类型？**
-A: 支持所有标准JSON格式，包括嵌套对象、数组等复杂结构，自动检测并美化显示。
+**Q: What data types does JSON formatting support?**
+A: Supports all standard JSON formats, including nested objects, arrays, and other complex structures with automatic detection and beautification.
 
-**Q: 配置文件可以包含哪些内容？**
-A: 可以选择性包含 LocalStorage 数据和 Cookies，支持跨域名的配置管理。
+**Q: What can be included in profiles?**
+A: You can selectively include LocalStorage data and Cookies, with support for cross-domain configuration management.
 
-**Q: 数据安全性如何保障？**
-A: 所有数据仅存储在本地浏览器中，不会上传到任何服务器，完全保护您的隐私。
+**Q: How is data security ensured?**
+A: All data is stored only in your local browser, never uploaded to any servers, completely protecting your privacy.
 
-## 🔒 **隐私保护**
+## 🔒 **Privacy Protection**
 
-- ✅ 100% 本地存储，无数据上传
-- ✅ 仅在授权网站运行
-- ✅ 开源透明，代码可审查
+- ✅ 100% local storage, no data uploads
+- ✅ Runs only on authorized websites
+- ✅ Open source and transparent, code is auditable
 
-## 📊 **技术规格**
+## 📊 **Technical Specifications**
 
-- **版本**: 1.1.10 | **架构**: Manifest V3 | **兼容**: Chrome 88+
+- **Version**: 2.1.2 | **Architecture**: React + TypeScript + Vite | **Standard**: Manifest V3
+- **Compatibility**: Chrome 88+ | **Bundle Size**: ~360KB | **Load Time**: <500ms
 
 ---
 
-⭐ **如果这个工具对您有帮助，请给我们一个Star！**
-🐛 **发现问题？** [提交Issue](https://github.com/jasonwong1991/storage-manager-pro/issues)
-💡 **有建议？** [参与讨论](https://github.com/jasonwong1991/storage-manager-pro/discussions)
+⭐ **If this tool helps you, please give us a Star!**
+🐛 **Found a bug?** [Submit Issue](https://github.com/jasonwong1991/storage-manager-pro/issues)
+💡 **Have suggestions?** [Join Discussion](https://github.com/jasonwong1991/storage-manager-pro/discussions)

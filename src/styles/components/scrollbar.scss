@@ -1,0 +1,248 @@
+// 滚动条样式 - 统一的现代化设计
+// 支持明亮和暗黑主题
+
+// 基础滚动条样式
+@mixin scrollbar-base {
+  // WebKit 浏览器滚动条
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      border-radius: 4px;
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  // Firefox 滚动条
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+}
+
+// 明亮主题滚动条
+@mixin scrollbar-light {
+  --scrollbar-track-color: #f1f5f9;
+  --scrollbar-thumb-color: #cbd5e1;
+  --scrollbar-thumb-hover-color: #94a3b8;
+
+  &::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+    
+    &:hover {
+      background: var(--scrollbar-thumb-hover-color);
+    }
+  }
+}
+
+// 暗黑主题滚动条
+@mixin scrollbar-dark {
+  --scrollbar-track-color: #1e293b;
+  --scrollbar-thumb-color: #475569;
+  --scrollbar-thumb-hover-color: #64748b;
+
+  &::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+    
+    &:hover {
+      background: var(--scrollbar-thumb-hover-color);
+    }
+  }
+}
+
+// 细滚动条（用于小区域）
+@mixin scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    
+    &:hover {
+      border-radius: 3px;
+    }
+  }
+}
+
+// 应用到全局
+* {
+  @include scrollbar-base;
+}
+
+// 明亮主题
+.theme-light,
+[data-theme="light"] {
+  * {
+    @include scrollbar-light;
+  }
+}
+
+// 暗黑主题
+.theme-dark,
+[data-theme="dark"] {
+  * {
+    @include scrollbar-dark;
+  }
+}
+
+// 特定组件的滚动条样式
+.modal-content {
+  @include scrollbar-base;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+.storage-list {
+  @include scrollbar-base;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+.profile-list,
+.backup-list,
+.account-list {
+  @include scrollbar-base;
+  @include scrollbar-thin;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+.indexeddb-item {
+  @include scrollbar-base;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// 编辑器滚动条
+.editor-container,
+.value-editor,
+.fullscreen-editor {
+  @include scrollbar-base;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// 下拉列表滚动条
+.dropdown-menu,
+.select-options {
+  @include scrollbar-base;
+  @include scrollbar-thin;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// Toast 容器滚动条
+.toast-container {
+  @include scrollbar-base;
+  @include scrollbar-thin;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// 代码块滚动条
+pre,
+code {
+  @include scrollbar-base;
+  @include scrollbar-thin;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// 表格滚动条
+.table-container {
+  @include scrollbar-base;
+  
+  .theme-light & {
+    @include scrollbar-light;
+  }
+  
+  .theme-dark & {
+    @include scrollbar-dark;
+  }
+}
+
+// 响应式设计 - 移动设备上隐藏滚动条
+@media (max-width: 768px) {
+  .mobile-hide-scrollbar {
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+}

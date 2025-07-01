@@ -1,0 +1,69 @@
+{
+  "version": "2.0.0",
+  "buildDate": "2025-06-28T19:19:36.856Z",
+  "files": [
+    {
+      "name": "manifest.json",
+      "size": 904,
+      "sizeKB": "0.88"
+    },
+    {
+      "name": "tab.html",
+      "size": 2162,
+      "sizeKB": "2.11"
+    },
+    {
+      "name": "tab.js",
+      "size": 296430,
+      "sizeKB": "289.48"
+    },
+    {
+      "name": "background.js",
+      "size": 2998,
+      "sizeKB": "2.93"
+    },
+    {
+      "name": "content.js",
+      "size": 3308,
+      "sizeKB": "3.23"
+    },
+    {
+      "name": "init.js",
+      "size": 740,
+      "sizeKB": "0.72"
+    },
+    {
+      "name": "icons/icon16.png",
+      "size": 20905,
+      "sizeKB": "20.42"
+    },
+    {
+      "name": "icons/icon48.png",
+      "size": 20905,
+      "sizeKB": "20.42"
+    },
+    {
+      "name": "icons/icon128.png",
+      "size": 20905,
+      "sizeKB": "20.42"
+    }
+  ],
+  "totalSize": 369257,
+  "instructions": {
+    "installation": [
+      "1. 打开Chrome浏览器",
+      "2. 访问 chrome://extensions/",
+      "3. 开启\"开发者模式\"",
+      "4. 点击\"加载已解压的扩展程序\"",
+      "5. 选择dist文件夹",
+      "6. 扩展安装完成"
+    ],
+    "usage": [
+      "1. 点击扩展图标打开Storage Manager Pro",
+      "2. 选择要管理的域名",
+      "3. 查看和编辑localStorage、sessionStorage、cookies等",
+      "4. 使用格式化工具美化JSON数据",
+      "5. 保存和加载配置文件"
+    ]
+  }
+}

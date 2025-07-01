@@ -1,0 +1,97 @@
+// Tabs组件样式
+.tabs {
+  display: flex;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  .tab-button {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+
+    &:hover {
+      color: #475569;
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+      transform: translateY(-1px);
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -0.25rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid #3b82f6;
+      }
+    }
+  }
+}
+
+// 暗黑主题
+.theme-dark .tabs {
+  background: #1f2937;
+
+  .tab-button {
+    color: #9ca3af;
+
+    &:hover {
+      color: #d1d5db;
+      background: rgba(59, 130, 246, 0.2);
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+      color: #f9fafb;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+      &::after {
+        border-top-color: #1f2937;
+      }
+    }
+  }
+}
+
+// 明亮主题
+.theme-light .tabs {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+
+  .tab-button {
+    color: #6b7280;
+
+    &:hover {
+      color: #374151;
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+
+      &::after {
+        border-top-color: #3b82f6;
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "storage-manager-pro",
+  "version": "2.1.3",
+  "description": "Professional browser storage management tool with React + TypeScript",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && npm run build:main && npm run build:content && node scripts/post-build.cjs",
+    "build:main": "vite build --config vite.config.ts",
+    "build:content": "vite build --config vite.content.config.ts",
+    "build:dev": "tsc && npm run build:main && npm run build:content",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --fix",
+    "lint:check": "eslint src",
+    "preview": "vite preview",
+    "package": "npm run build && zip -r storage-manager-pro.zip dist/",
+    "release": "node scripts/release.js",
+    "release:quick": "node scripts/quick-release.js",
+    "release:patch": "node scripts/release.js",
+    "release:minor": "node scripts/release.js --minor",
+    "release:major": "node scripts/release.js --major"
+  },
+  "dependencies": {
+    "clsx": "^2.0.0",
+    "i18next": "^23.7.16",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^13.5.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.21",
+    "@types/chrome": "^0.0.253",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "prettier": "^3.1.1",
+    "sass": "^1.69.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  },
+  "keywords": [
+    "chrome-extension",
+    "storage-manager",
+    "developer-tools",
+    "react",
+    "typescript"
+  ],
+  "author": "Storage Manager Pro Team",
+  "license": "MIT"
+}

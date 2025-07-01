@@ -1,0 +1,99 @@
+// Custom Alert and Confirm Dialog Styles
+.custom-alert,
+.custom-confirm {
+  .alert-content,
+  .confirm-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 8px 0;
+  }
+
+  .alert-icon,
+  .confirm-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .alert-message,
+  .confirm-message {
+    flex: 1;
+    line-height: 1.5;
+    color: var(--color-text);
+  }
+}
+
+// Alert type specific styles
+.alert-success .alert-icon.success {
+  color: #10b981;
+}
+
+.alert-warning .alert-icon.warning {
+  color: #f59e0b;
+}
+
+.alert-error .alert-icon.error {
+  color: #ef4444;
+}
+
+.alert-info .alert-icon.info {
+  color: #3b82f6;
+}
+
+// Confirm type specific styles
+.confirm-warning .confirm-icon.warning {
+  color: #f59e0b;
+}
+
+.confirm-danger .confirm-icon.danger {
+  color: #ef4444;
+}
+
+.confirm-info .confirm-icon.info {
+  color: #3b82f6;
+}
+
+// Button styles for different types
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  
+  &:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+  }
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  
+  &:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+  }
+}
+
+// Dark theme adjustments
+[data-theme="dark"],
+.theme-dark {
+  .custom-alert,
+  .custom-confirm {
+    .alert-message,
+    .confirm-message {
+      color: var(--color-text) !important;
+    }
+  }
+}
+
+// Light theme adjustments
+[data-theme="light"],
+.theme-light {
+  .custom-alert,
+  .custom-confirm {
+    .alert-message,
+    .confirm-message {
+      color: var(--color-text) !important;
+    }
+  }
+}
