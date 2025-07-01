@@ -185,16 +185,19 @@ function createZipPackage(version) {
 }
 
 // 提交更改
-function commitChanges(version) {
+function commitChanges(version, zipName) {
   step('Committing changes');
-  
+
+  // 添加所有文件，包括 ZIP 文件
   exec('git add .');
+  exec(`git add ${zipName}`);
   exec(`git commit -m "chore: release v${version}
 
 - Updated version to ${version}
 - Built production assets
-- Updated documentation"`);
-  
+- Updated documentation
+- Added release package ${zipName}"`);
+
   success('Changes committed');
 }
 
@@ -210,10 +213,65 @@ function createTag(version) {
 // 推送到远程仓库
 function pushToRemote(version) {
   step('Pushing to remote repository');
-  
+
   exec('git push origin main');
   exec(`git push origin v${version}`);
   success('Pushed to remote repository');
+}
+
+// 创建 GitHub Release
+function createGitHubRelease(version, zipName) {
+  step('Creating GitHub Release');
+
+  try {
+    // 检查是否安装了 gh CLI
+    exec('gh --version', { stdio: 'pipe' });
+
+    // 读取 CHANGELOG 获取发布说明
+    const changelogPath = path.resolve(rootDir, 'CHANGELOG.md');
+    let releaseNotes = `Release v${version}`;
+
+    if (fs.existsSync(changelogPath)) {
+      const changelog = fs.readFileSync(changelogPath, 'utf8');
+      const versionMatch = changelog.match(new RegExp(`## \\[${version}\\][\\s\\S]*?(?=## \\[|$)`));
+      if (versionMatch) {
+        releaseNotes = versionMatch[0].replace(`## [${version}]`, '').trim();
+      }
+    }
+
+    // 创建 GitHub Release 并上传 ZIP 文件
+    exec(`gh release create v${version} ${zipName} --title "Release v${version}" --notes "${releaseNotes.replace(/"/g, '\\"')}" --latest`);
+    success(`Created GitHub Release v${version} with ${zipName}`);
+
+  } catch (err) {
+    warning('GitHub CLI not found or release creation failed');
+    warning('Please manually create GitHub Release and upload ZIP file');
+    info(`ZIP file location: ${zipName}`);
+  }
+}
+
+// 移动 ZIP 文件到 releases 目录
+function organizeReleaseFiles(zipName) {
+  step('Organizing release files');
+
+  const releasesDir = path.resolve(rootDir, 'releases');
+
+  // 创建 releases 目录
+  if (!fs.existsSync(releasesDir)) {
+    fs.mkdirSync(releasesDir, { recursive: true });
+  }
+
+  // 移动 ZIP 文件到 releases 目录
+  const sourcePath = path.resolve(rootDir, zipName);
+  const targetPath = path.resolve(releasesDir, zipName);
+
+  if (fs.existsSync(sourcePath)) {
+    fs.renameSync(sourcePath, targetPath);
+    success(`Moved ${zipName} to releases/ directory`);
+    return path.relative(rootDir, targetPath);
+  }
+
+  return zipName;
 }
 
 // 主函数
@@ -223,7 +281,14 @@ async function main() {
   
   // 获取命令行参数
   const args = process.argv.slice(2);
-  let newVersion = args[0];
+  const options = {
+    skipGitHub: args.includes('--skip-github'),
+    skipPush: args.includes('--skip-push'),
+    dryRun: args.includes('--dry-run'),
+  };
+
+  // 过滤出版本号（排除选项参数）
+  let newVersion = args.find(arg => !arg.startsWith('--'));
   
   // 检查工作目录
   await checkWorkingDirectory();
@@ -248,31 +313,78 @@ async function main() {
   }
   
   // 检查版本是否比当前版本新
-  if (newVersion <= currentVersion) {
+  function compareVersions(v1, v2) {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+      const part1 = parts1[i] || 0;
+      const part2 = parts2[i] || 0;
+
+      if (part1 > part2) return 1;
+      if (part1 < part2) return -1;
+    }
+    return 0;
+  }
+
+  if (compareVersions(newVersion, currentVersion) <= 0) {
     error(`New version (${newVersion}) must be greater than current version (${currentVersion})`);
     process.exit(1);
   }
   
   try {
+    if (options.dryRun) {
+      info('🧪 Dry run mode - no actual changes will be made');
+    }
+
     // 执行发布流程
-    updateVersion(newVersion);
+    if (!options.dryRun) {
+      updateVersion(newVersion);
+    } else {
+      info(`Would update version to ${newVersion}`);
+    }
+
     buildProject();
     const zipName = createZipPackage(newVersion);
-    commitChanges(newVersion);
-    createTag(newVersion);
-    pushToRemote(newVersion);
-    
+
+    // 组织发布文件
+    const finalZipPath = organizeReleaseFiles(zipName);
+
+    // Git 操作
+    if (!options.dryRun) {
+      commitChanges(newVersion, finalZipPath);
+      createTag(newVersion);
+
+      if (!options.skipPush) {
+        pushToRemote(newVersion);
+      } else {
+        warning('Skipping push to remote repository');
+      }
+
+      // 创建 GitHub Release
+      if (!options.skipGitHub) {
+        createGitHubRelease(newVersion, finalZipPath);
+      } else {
+        warning('Skipping GitHub Release creation');
+      }
+    } else {
+      info('Would commit changes and create Git tag');
+      info('Would push to remote repository');
+      info('Would create GitHub Release');
+    }
+
     // 发布成功
     log('\n🎉 Release completed successfully!', 'green');
     log('================================\n', 'green');
     success(`Version: ${newVersion}`);
-    success(`ZIP package: ${zipName}`);
+    success(`ZIP package: ${finalZipPath}`);
     success(`Git tag: v${newVersion}`);
     success('Changes pushed to remote repository');
-    
+    success('GitHub Release created (if gh CLI available)');
+
     info('\nNext steps:');
     info('1. Upload the ZIP file to Chrome Web Store');
-    info('2. Create a GitHub release with the ZIP file');
+    info('2. Verify GitHub release was created correctly');
     info('3. Update any external documentation');
     
   } catch (err) {

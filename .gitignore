@@ -2,6 +2,11 @@ node_modules
 dist
 *.tgz
 *.log
-docs 
+docs
 demo
 test
+packages
+release
+# 排除根目录的 ZIP 文件，但保留 releases 目录中的
+/*.zip
+!releases/
