@@ -1,6 +1,6 @@
 {
   "name": "storage-manager-pro",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "Professional browser storage management tool with React + TypeScript",
   "type": "module",
   "scripts": {
@@ -20,7 +20,8 @@
     "release:dry": "node scripts/release.js --dry-run",
     "release:no-github": "node scripts/release.js --skip-github",
     "release:no-push": "node scripts/release.js --skip-push",
-    "release:local": "node scripts/release.js --skip-github --skip-push"
+    "release:local": "node scripts/release.js --skip-github --skip-push",
+    "test:gh": "node scripts/test-gh.js"
   },
   "dependencies": {
     "clsx": "^2.0.0",

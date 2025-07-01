@@ -42,7 +42,23 @@ function info(message) {
 // 执行命令
 function exec(command) {
   try {
-    execSync(command, { cwd: rootDir, stdio: 'inherit' });
+    // 扩展 PATH 以包含常见的 Homebrew 路径
+    const extendedEnv = {
+      ...process.env,
+      PATH: [
+        process.env.PATH,
+        '/opt/homebrew/bin',
+        '/usr/local/bin',
+        '/usr/bin',
+        '/bin'
+      ].filter(Boolean).join(':')
+    };
+
+    execSync(command, {
+      cwd: rootDir,
+      stdio: 'inherit',
+      env: extendedEnv
+    });
   } catch (err) {
     console.error(`❌ Command failed: ${command}`);
     process.exit(1);

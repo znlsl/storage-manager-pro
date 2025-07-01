@@ -60,9 +60,22 @@ function step(message) {
 // 执行命令
 function exec(command, options = {}) {
   try {
+    // 扩展 PATH 以包含常见的 Homebrew 路径
+    const extendedEnv = {
+      ...process.env,
+      PATH: [
+        process.env.PATH,
+        '/opt/homebrew/bin',
+        '/usr/local/bin',
+        '/usr/bin',
+        '/bin'
+      ].filter(Boolean).join(':')
+    };
+
     const result = execSync(command, {
       cwd: rootDir,
       stdio: 'inherit',
+      env: extendedEnv,
       ...options,
     });
     return result;
@@ -250,7 +263,26 @@ function createGitHubRelease(version, zipName) {
   }
 }
 
-// 移动 ZIP 文件到 releases 目录
+// 清理旧的发布文件
+function cleanupOldReleases() {
+  step('Cleaning up old release files');
+
+  const releasesDir = path.resolve(rootDir, 'releases');
+
+  if (fs.existsSync(releasesDir)) {
+    // 删除 releases 目录中的所有文件
+    const files = fs.readdirSync(releasesDir);
+    files.forEach(file => {
+      const filePath = path.resolve(releasesDir, file);
+      if (fs.statSync(filePath).isFile()) {
+        fs.unlinkSync(filePath);
+        info(`Removed old release file: ${file}`);
+      }
+    });
+  }
+}
+
+// 移动 ZIP 文件到 releases 目录（只保存最新版本）
 function organizeReleaseFiles(zipName) {
   step('Organizing release files');
 
@@ -261,6 +293,9 @@ function organizeReleaseFiles(zipName) {
     fs.mkdirSync(releasesDir, { recursive: true });
   }
 
+  // 清理旧版本
+  cleanupOldReleases();
+
   // 移动 ZIP 文件到 releases 目录
   const sourcePath = path.resolve(rootDir, zipName);
   const targetPath = path.resolve(releasesDir, zipName);
@@ -268,6 +303,7 @@ function organizeReleaseFiles(zipName) {
   if (fs.existsSync(sourcePath)) {
     fs.renameSync(sourcePath, targetPath);
     success(`Moved ${zipName} to releases/ directory`);
+    success('Only latest version is kept in releases/');
     return path.relative(rootDir, targetPath);
   }
 
