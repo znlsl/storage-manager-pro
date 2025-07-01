@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../hooks/useLanguage';
+import { useCustomDialog } from '../../hooks/useCustomDialog';
 import { ProfileService } from '../../services/profile.service';
 import { StorageService } from '../../services/storage.service';
 import { CookieService } from '../../services/cookie.service';
 import { BaseModal } from './BaseModal';
+import { CustomAlert } from '../common/CustomAlert';
+import { CustomConfirm } from '../common/CustomConfirm';
 
 interface SaveProfileModalProps {
   onClose: () => void;
@@ -17,6 +20,7 @@ export const SaveProfileModal: React.FC<SaveProfileModalProps> = ({
   currentDomain,
 }) => {
   const { t } = useLanguage();
+  const { alertState, showAlert, hideAlert, confirmState, showConfirm, hideConfirm } = useCustomDialog();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -38,18 +42,51 @@ export const SaveProfileModal: React.FC<SaveProfileModalProps> = ({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert(t('profile_name_required'));
+      showAlert(t('profile_name_required'), { type: 'warning' });
       return;
     }
 
     if (!currentDomain) {
-      alert(t('domain_required_for_profile'));
+      showAlert(t('domain_required_for_profile'), { type: 'warning' });
       return;
     }
 
     if (!formData.includeLocalStorage && !formData.includeCookies) {
-      alert(t('select_at_least_one_content_type'));
+      showAlert(t('select_at_least_one_content_type'), { type: 'warning' });
       return;
+    }
+
+    // 检查配置文件名称是否已存在
+    try {
+      const existingProfiles = await ProfileService.getProfileList();
+      const duplicateProfile = existingProfiles.find(profile => profile.name === formData.name.trim());
+
+      if (duplicateProfile) {
+        // 生成唯一名称建议
+        const baseName = formData.name.trim();
+        let counter = 1;
+        let suggestedName = `${baseName} (${counter})`;
+
+        while (existingProfiles.find(profile => profile.name === suggestedName)) {
+          counter++;
+          suggestedName = `${baseName} (${counter})`;
+        }
+
+        await showConfirm(
+          t('profile_name_exists', { name: formData.name.trim(), suggested: suggestedName }),
+          () => {
+            setFormData(prev => ({ ...prev, name: suggestedName }));
+          },
+          {
+            type: 'warning',
+            confirmText: t('use_suggested_name'),
+            cancelText: t('keep_current_name')
+          }
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check existing profiles:', error);
     }
 
     setSaving(true);
@@ -109,7 +146,7 @@ export const SaveProfileModal: React.FC<SaveProfileModalProps> = ({
       onSaved();
     } catch (error) {
       console.error('Failed to save profile:', error);
-      alert(t('save_profile_error'));
+      showAlert(t('save_profile_error'), { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -193,6 +230,26 @@ export const SaveProfileModal: React.FC<SaveProfileModalProps> = ({
           <div className="domain-display">{currentDomain}</div>
         </div>
       )}
+
+      {/* Custom Dialogs */}
+      <CustomAlert
+        isOpen={alertState.isOpen}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
+
+      <CustomConfirm
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        type={confirmState.type}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        onConfirm={confirmState.onConfirm || (() => {})}
+        onCancel={confirmState.onCancel || hideConfirm}
+      />
     </BaseModal>
   );
 };

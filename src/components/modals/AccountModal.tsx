@@ -55,13 +55,46 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
   const handleSaveAccount = async () => {
     if (!formData.name.trim()) {
-      alert(t('account_name_required'));
+      showAlert(t('account_name_required'), { type: 'warning' });
       return;
     }
 
     if (!currentDomain) {
-      alert(t('domain_required_for_account'));
+      showAlert(t('domain_required_for_account'), { type: 'warning' });
       return;
+    }
+
+    // 检查账户名称是否已存在
+    try {
+      const existingAccounts = await CookieAccountManager.getAccountList(currentDomain);
+      const duplicateAccount = existingAccounts.find(account => account.name === formData.name.trim());
+
+      if (duplicateAccount) {
+        // 生成唯一名称建议
+        const baseName = formData.name.trim();
+        let counter = 1;
+        let suggestedName = `${baseName} (${counter})`;
+
+        while (existingAccounts.find(account => account.name === suggestedName)) {
+          counter++;
+          suggestedName = `${baseName} (${counter})`;
+        }
+
+        await showConfirm(
+          t('account_name_exists', { name: formData.name.trim(), suggested: suggestedName }),
+          () => {
+            setFormData(prev => ({ ...prev, name: suggestedName }));
+          },
+          {
+            type: 'warning',
+            confirmText: t('use_suggested_name'),
+            cancelText: t('keep_current_name')
+          }
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check existing accounts:', error);
     }
 
     setProcessing(true);
@@ -79,7 +112,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
       onComplete();
     } catch (error) {
       console.error('Failed to save account:', error);
-      alert(t('save_account_error'));
+      showAlert(t('save_account_error'), { type: 'error' });
     } finally {
       setProcessing(false);
     }

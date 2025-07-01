@@ -5,7 +5,7 @@ English | [中文版](README_CN.md)
 
 🚀 **Professional Browser Storage Management Tool** - Modern Chrome extension rebuilt with React + TypeScript + Vite
 
-[![Version](https://img.shields.io/badge/version-2.1.2-blue.svg)](https://github.com/your-repo/storage-manager-pro)
+[![Version](https://img.shields.io/badge/version-2.1.7-blue.svg)](https://github.com/your-repo/storage-manager-pro)
 [![Manifest](https://img.shields.io/badge/manifest-v3-green.svg)](https://developer.chrome.com/docs/extensions/mv3/)
 [![React](https://img.shields.io/badge/react-18+-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5+-3178c6.svg)](https://www.typescriptlang.org/)
@@ -75,26 +75,155 @@ English | [中文版](README_CN.md)
 
 ## 📖 **User Guide**
 
-### Basic Operations
-1. **Install Extension** → Click toolbar icon → Instantly view current page storage data
-2. **Edit Data** → Click "Edit" button → Use formatting tools → Save changes
-3. **Search & Locate** → Enter keywords → Quickly find target data items
+### 📋 Table of Contents
 
-### Advanced Features
-- **Backup Important Data** - Prevent accidental loss with named backups with descriptions
-- **Profile Management** - Create dedicated configurations for different environments
-- **Batch Operations** - Quickly clean test data or reset states
+1. [Installation Guide](#-installation-guide)
+2. [Basic Operations](#-basic-operations)
+3. [Core Features](#-core-features)
+4. [Advanced Features](#-advanced-features)
+5. [FAQ](#-faq)
+6. [Best Practices](#-best-practices)
 
-## 📦 **Installation**
+### 🚀 Installation Guide
 
-### Developer Installation
-1. Download project files to local directory
-2. Open Chrome extensions page (`chrome://extensions/`)
-3. Enable "Developer mode"
-4. Click "Load unpacked", select project folder
-5. Extension icon appears in toolbar - installation complete!
+#### Developer Installation (Recommended)
 
-## ❓ **FAQ**
+1. **Download Project**
+   ```bash
+   git clone https://github.com/jasonwong1991/storage-manager-pro.git
+   cd storage-manager-pro
+   ```
+
+2. **Build Extension**
+   ```bash
+   npm install
+   npm run build
+   ```
+
+3. **Load into Browser**
+   - Open Chrome browser
+   - Navigate to `chrome://extensions/`
+   - Enable "Developer mode" in the top right
+   - Click "Load unpacked"
+   - Select the project's `dist` folder
+   - Extension installed successfully!
+
+#### Verify Installation
+
+After successful installation, you'll see the Storage Manager Pro icon 🚀 in your browser toolbar.
+
+### 🎯 Basic Operations
+
+#### Launch Extension
+
+1. **Click Toolbar Icon**
+   - Click the Storage Manager Pro icon on any webpage
+   - Extension opens in a new tab
+
+2. **Select Domain**
+   - Choose the website to manage from the "Current Domain" dropdown
+   - Supports all currently open tab domains
+   - Can manually input domain names
+
+#### Data Viewing
+
+1. **Storage Tabs**
+   - **LocalStorage**: View and manage local storage data
+   - **SessionStorage**: Manage session-specific data
+   - **Cookies**: Complete cookie management
+   - **IndexedDB**: Browse database structures and data
+
+2. **Data Display**
+   - Automatic JSON formatting for complex data
+   - Syntax highlighting for better readability
+   - Search and filter capabilities
+
+### 🔧 Core Features
+
+#### JSON Data Processing
+
+1. **Format JSON**
+   - Click "Format JSON" button on any JSON value
+   - Automatic beautification with proper indentation
+   - Syntax error detection and highlighting
+
+2. **Compress JSON**
+   - Remove unnecessary whitespace
+   - Minimize data size for storage efficiency
+
+3. **Encoding Tools**
+   - **Base64**: Encode/decode binary data
+   - **UTF-8 URL**: Handle URL encoding
+   - **UTF-8 Hex**: Hexadecimal encoding
+   - **Unicode**: Unicode character encoding
+   - **HTML Entity**: HTML entity encoding
+
+#### Data Editing
+
+1. **Edit Items**
+   - Click "Edit" button on any storage item
+   - Full-screen editor with formatting tools
+   - Real-time validation and preview
+
+2. **Add New Items**
+   - Click "Add Item" to create new entries
+   - Support for all data types
+   - Automatic validation
+
+3. **Delete Items**
+   - Individual item deletion with confirmation
+   - Bulk operations for efficiency
+   - Undo protection
+
+### 🚀 Advanced Features
+
+#### Profile Management
+
+1. **Save Profiles**
+   - Create complete snapshots of storage data
+   - Include LocalStorage and Cookies selectively
+   - Add descriptions for easy identification
+
+2. **Load Profiles**
+   - Restore saved configurations instantly
+   - Preview profile contents before loading
+   - Backup current data before restoration
+
+3. **Export/Import**
+   - Export profiles as JSON files
+   - Import configurations from files
+   - Share configurations between devices
+
+#### Cookie Account Management
+
+1. **Save Accounts**
+   - Capture current login state as named accounts
+   - Include all relevant cookies
+   - Add descriptions for context
+
+2. **Switch Accounts**
+   - Instantly switch between different login states
+   - Perfect for testing multiple user scenarios
+   - Automatic cookie replacement
+
+3. **Account Organization**
+   - Group accounts by domain
+   - View account details and cookie counts
+   - Delete unused accounts
+
+#### Backup & Restore
+
+1. **Create Backups**
+   - Named backups with timestamps
+   - Selective content inclusion
+   - Automatic compression
+
+2. **Restore Data**
+   - Choose from available backups
+   - Preview backup contents
+   - Confirmation before restoration
+
+### ❓ FAQ
 
 **Q: What data types does JSON formatting support?**
 A: Supports all standard JSON formats, including nested objects, arrays, and other complex structures with automatic detection and beautification.
@@ -105,6 +234,46 @@ A: You can selectively include LocalStorage data and Cookies, with support for c
 **Q: How is data security ensured?**
 A: All data is stored only in your local browser, never uploaded to any servers, completely protecting your privacy.
 
+**Q: Can I use this on any website?**
+A: Yes, the extension works on all websites. Simply select the domain you want to manage from the dropdown.
+
+**Q: What's the difference between profiles and accounts?**
+A: Profiles save complete storage configurations (LocalStorage + Cookies), while accounts specifically save Cookie-based login states.
+
+**Q: How do I backup my data?**
+A: Use the backup feature in LocalStorage tab, or export profiles for complete configuration backups.
+
+### 🎯 Best Practices
+
+#### Development Workflow
+
+1. **Environment Separation**
+   - Create separate profiles for development, staging, and production
+   - Use account switching for different user roles
+   - Regular backups before major changes
+
+2. **Data Management**
+   - Use descriptive names for profiles and accounts
+   - Regular cleanup of test data
+   - Export important configurations
+
+3. **Testing Scenarios**
+   - Save different user states as accounts
+   - Test with various data configurations
+   - Verify data persistence across sessions
+
+#### Security Considerations
+
+1. **Sensitive Data**
+   - Be cautious with authentication tokens
+   - Don't share profiles containing sensitive information
+   - Regular cleanup of expired sessions
+
+2. **Privacy Protection**
+   - All data remains local to your browser
+   - No external data transmission
+   - Full control over your information
+
 ## 🔒 **Privacy Protection**
 
 - ✅ 100% local storage, no data uploads
@@ -113,7 +282,7 @@ A: All data is stored only in your local browser, never uploaded to any servers,
 
 ## 📊 **Technical Specifications**
 
-- **Version**: 2.1.2 | **Architecture**: React + TypeScript + Vite | **Standard**: Manifest V3
+- **Version**: 2.1.7 | **Architecture**: React + TypeScript + Vite | **Standard**: Manifest V3
 - **Compatibility**: Chrome 88+ | **Bundle Size**: ~360KB | **Load Time**: <500ms
 
 ---

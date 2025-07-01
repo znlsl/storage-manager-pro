@@ -240,26 +240,19 @@ function createGitHubRelease(version, zipName) {
     // 检查是否安装了 gh CLI
     exec('gh --version', { stdio: 'pipe' });
 
-    // 读取 CHANGELOG 获取发布说明
-    const changelogPath = path.resolve(rootDir, 'CHANGELOG.md');
-    let releaseNotes = `Release v${version}`;
-
-    if (fs.existsSync(changelogPath)) {
-      const changelog = fs.readFileSync(changelogPath, 'utf8');
-      const versionMatch = changelog.match(new RegExp(`## \\[${version}\\][\\s\\S]*?(?=## \\[|$)`));
-      if (versionMatch) {
-        releaseNotes = versionMatch[0].replace(`## [${version}]`, '').trim();
-      }
-    }
-
-    // 创建 GitHub Release 并上传 ZIP 文件
-    exec(`gh release create v${version} ${zipName} --title "Release v${version}" --notes "${releaseNotes.replace(/"/g, '\\"')}" --latest`);
-    success(`Created GitHub Release v${version} with ${zipName}`);
+    // 使用 GitHub 自动生成发布说明功能
+    // --generate-notes: 基于提交历史自动生成发布说明
+    // --title: 设置发布标题
+    // --latest: 标记为最新版本
+    exec(`gh release create v${version} ${zipName} --title "v${version}" --generate-notes --latest`);
+    success(`Created GitHub Release v${version} with auto-generated notes`);
+    success(`Uploaded ${zipName} to GitHub Release`);
 
   } catch (err) {
     warning('GitHub CLI not found or release creation failed');
     warning('Please manually create GitHub Release and upload ZIP file');
     info(`ZIP file location: ${zipName}`);
+    info('Error details:', err.message);
   }
 }
 

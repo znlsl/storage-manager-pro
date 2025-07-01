@@ -107,6 +107,21 @@ class BackgroundService {
         sendResponse({ success: true });
         break;
 
+      case 'PING':
+        // 响应ping消息，用于检测扩展上下文是否有效
+        sendResponse({ success: true, data: 'pong' });
+        break;
+
+      case 'EXTENSION_STATE_CHECK':
+        // 响应扩展状态检查消息
+        sendResponse({ success: true, data: 'extension_available' });
+        break;
+
+      case 'CHECK_EXTENSION_ACTIVE':
+        // 检查扩展是否处于活跃状态（有标签页或弹窗打开）
+        this.handleCheckExtensionActive(sendResponse);
+        break;
+
       default:
         sendResponse({
           success: false,
@@ -425,6 +440,37 @@ class BackgroundService {
       }
     } catch (error) {
       console.error('Error handling cookie change:', error);
+    }
+  }
+
+  /**
+   * 检查扩展是否处于活跃状态
+   */
+  private handleCheckExtensionActive(sendResponse: (response: ChromeResponse) => void): void {
+    try {
+      // 检查是否有扩展标签页打开或弹窗窗口存在
+      const hasActiveTabs = this.extensionTabIds.size > 0;
+      const hasPopupWindow = this.popupWindowId !== null;
+      const isActive = hasActiveTabs || hasPopupWindow;
+
+      console.log('Extension active check:', {
+        hasActiveTabs,
+        hasPopupWindow,
+        isActive,
+        tabCount: this.extensionTabIds.size,
+        popupWindowId: this.popupWindowId
+      });
+
+      sendResponse({
+        success: true,
+        data: { active: isActive }
+      });
+    } catch (error) {
+      console.error('Error checking extension active status:', error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 

@@ -181,7 +181,7 @@ export const GlobalProfileModal: React.FC<GlobalProfileModalProps> = ({
 
   const handleDeleteProfile = async (profileName: string) => {
     await showConfirm(
-      t('confirm_delete_profile'),
+      t('confirm_delete_profile', { name: profileName }),
       async () => {
         setProcessing(true);
         try {

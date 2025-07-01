@@ -1,303 +1,303 @@
-# Storage Manager Pro 使用教程
+# Storage Manager Pro User Guide
 
-## 📋 目录
+## 📋 Table of Contents
 
-1. [安装指南](#-安装指南)
-2. [基础操作](#-基础操作)
-3. [核心功能详解](#-核心功能详解)
-4. [高级功能](#-高级功能)
-5. [常见问题](#-常见问题)
-6. [最佳实践](#-最佳实践)
+1. [Installation Guide](#-installation-guide)
+2. [Basic Operations](#-basic-operations)
+3. [Core Features](#-core-features)
+4. [Advanced Features](#-advanced-features)
+5. [FAQ](#-faq)
+6. [Best Practices](#-best-practices)
 
-## 🚀 安装指南
+## 🚀 Installation Guide
 
-### 开发者安装（推荐）
+### Developer Installation (Recommended)
 
-1. **下载项目**
+1. **Download Project**
    ```bash
    git clone https://github.com/jasonwong1991/storage-manager-pro.git
    cd storage-manager-pro
    ```
 
-2. **构建扩展**
+2. **Build Extension**
    ```bash
    npm install
    npm run build
    ```
 
-3. **加载到浏览器**
-   - 打开 Chrome 浏览器
-   - 访问 `chrome://extensions/`
-   - 开启右上角的"开发者模式"
-   - 点击"加载已解压的扩展程序"
-   - 选择项目的 `dist` 文件夹
-   - 扩展安装完成！
+3. **Load into Browser**
+   - Open Chrome browser
+   - Navigate to `chrome://extensions/`
+   - Enable "Developer mode" in the top right
+   - Click "Load unpacked"
+   - Select the project's `dist` folder
+   - Extension installed successfully!
 
-### 验证安装
+### Verify Installation
 
-安装成功后，您会在浏览器工具栏看到 Storage Manager Pro 图标 🚀。
+After successful installation, you'll see the Storage Manager Pro icon 🚀 in your browser toolbar.
 
-## 🎯 基础操作
+## 🎯 Basic Operations
 
-### 启动扩展
+### Launch Extension
 
-1. **点击工具栏图标**
-   - 在任意网页上点击 Storage Manager Pro 图标
-   - 扩展会在新标签页中打开
+1. **Click Toolbar Icon**
+   - Click the Storage Manager Pro icon on any webpage
+   - Extension opens in a new tab
 
-2. **选择域名**
-   - 在"当前域名"下拉菜单中选择要管理的网站
-   - 支持当前打开的所有标签页域名
-   - 也可以手动输入域名
+2. **Select Domain**
+   - Choose the website to manage from the "Current Domain" dropdown
+   - Supports all currently open tab domains
+   - Manual domain input also supported
 
-3. **选择存储类型**
-   - 📦 **LocalStorage** - 本地存储数据
-   - 🔄 **SessionStorage** - 会话存储数据  
-   - 🍪 **Cookies** - Cookie 数据
-   - 💾 **IndexedDB** - 索引数据库
+3. **Choose Storage Type**
+   - 📦 **LocalStorage** - Local storage data
+   - 🔄 **SessionStorage** - Session storage data
+   - 🍪 **Cookies** - Cookie data
+   - 💾 **IndexedDB** - Indexed database
 
-## 🔧 核心功能详解
+## 🔧 Core Features
 
-### LocalStorage 管理
+### LocalStorage Management
 
-#### 查看数据
-- 所有 LocalStorage 项目以列表形式显示
-- 显示键名、值和操作按钮
-- JSON 数据会有特殊高亮显示
+#### View Data
+- All LocalStorage items displayed in list format
+- Shows key names, values, and action buttons
+- JSON data highlighted with special formatting
 
-#### 添加新项目
-1. 点击 "➕ 添加" 按钮
-2. 输入键名和值
-3. 点击"保存"完成添加
+#### Add New Items
+1. Click "➕ Add" button
+2. Enter key name and value
+3. Click "Save" to complete addition
 
-#### 编辑现有项目
-1. 点击项目右侧的 "✏️ 编辑" 按钮
-2. 在弹出的编辑器中修改值
-3. 支持全屏编辑模式
-4. 点击"保存"应用更改
+#### Edit Existing Items
+1. Click "✏️ Edit" button on the right side of an item
+2. Modify value in the popup editor
+3. Supports fullscreen editing mode
+4. Click "Save" to apply changes
 
-#### JSON 格式化
-1. 对于 JSON 格式的数据，点击 "🎨 格式化" 按钮
-2. 数据会自动美化显示，提升可读性
-3. 支持压缩和展开切换
+#### JSON Formatting
+1. For JSON format data, click "🎨 Format" button
+2. Data automatically beautified for better readability
+3. Supports compress/expand toggle
 
-### SessionStorage 管理
+### SessionStorage Management
 
-SessionStorage 的操作方式与 LocalStorage 完全相同：
-- 查看、添加、编辑、删除功能一致
-- 数据仅在当前会话中有效
-- 关闭标签页后数据会自动清除
+SessionStorage operations are identical to LocalStorage:
+- View, add, edit, delete functions are the same
+- Data only valid for current session
+- Data automatically cleared when tab is closed
 
-### Cookie 管理
+### Cookie Management
 
-#### 查看 Cookie
-- 显示所有 Cookie 的名称、值、域名、路径等信息
-- 支持查看 Cookie 的过期时间和安全属性
+#### View Cookies
+- Displays all Cookie names, values, domains, paths, etc.
+- Supports viewing Cookie expiration time and security attributes
 
-#### 添加 Cookie
-1. 点击 "➕ 添加Cookie" 按钮
-2. 填写 Cookie 信息：
-   - **名称**：Cookie 的键名
-   - **值**：Cookie 的值
-   - **域名**：作用域名（自动填充）
-   - **路径**：作用路径（默认 /）
-   - **过期时间**：可选设置
-   - **安全属性**：HttpOnly、Secure、SameSite
+#### Add Cookies
+1. Click "➕ Add Cookie" button
+2. Fill in Cookie information:
+   - **Name**: Cookie key name
+   - **Value**: Cookie value
+   - **Domain**: Scope domain (auto-filled)
+   - **Path**: Scope path (default /)
+   - **Expiration**: Optional setting
+   - **Security**: HttpOnly, Secure, SameSite
 
-#### 编辑 Cookie
-1. 点击 "✏️ 编辑" 按钮
-2. 修改 Cookie 的各项属性
-3. 保存后立即生效
+#### Edit Cookies
+1. Click "✏️ Edit" button
+2. Modify Cookie attributes
+3. Changes take effect immediately after saving
 
-#### 账户管理
-1. 点击 "👤 账户管理" 按钮
-2. 可以保存当前登录状态的所有 Cookie
-3. 支持在不同账户间快速切换
-4. 适用于测试不同用户权限
+#### Account Management
+1. Click "👤 Account Management" button
+2. Save all Cookies for current login state
+3. Supports quick switching between different accounts
+4. Useful for testing different user permissions
 
-### IndexedDB 查看
+### IndexedDB Viewing
 
-#### 数据库列表
-- 显示当前域名下的所有 IndexedDB 数据库
-- 显示数据库名称、版本号和对象存储数量
+#### Database List
+- Shows all IndexedDB databases under current domain
+- Displays database name, version, and object store count
 
-#### 对象存储
-- 查看每个数据库中的对象存储
-- 显示存储名称、索引信息和记录数量
+#### Object Stores
+- View object stores in each database
+- Shows store name, index information, and record count
 
-#### 数据预览
-- 查看存储中的样本数据
-- 对于大型数据，提供预览模式
-- 支持数据大小显示和性能优化
+#### Data Preview
+- View sample data in stores
+- Preview mode for large data sets
+- Supports data size display and performance optimization
 
-## 🎨 高级功能
+## 🎨 Advanced Features
 
-### 编码解码工具
+### Encoding/Decoding Tools
 
-#### Base64 编码/解码
-1. 选择包含 Base64 数据的项目
-2. 点击 "🔓 解码" 按钮
-3. 查看解码后的原始内容
-4. 也可以将文本编码为 Base64 格式
+#### Base64 Encode/Decode
+1. Select item containing Base64 data
+2. Click "🔓 Decode" button
+3. View decoded original content
+4. Can also encode text to Base64 format
 
-#### UTF-8 编码/解码
-1. 支持 UTF-8 字符编码和解码
-2. 处理多语言文本数据
-3. 显示十六进制编码结果
+#### UTF-8 Encode/Decode
+1. Supports UTF-8 character encoding and decoding
+2. Handles multilingual text data
+3. Displays hexadecimal encoding results
 
-### 搜索功能
+### Search Functionality
 
-#### 实时搜索
-1. 在搜索框中输入关键词
-2. 实时过滤显示匹配的存储项
-3. 支持键名和值的模糊搜索
-4. 搜索结果会高亮显示匹配内容
+#### Real-time Search
+1. Enter keywords in search box
+2. Real-time filtering of matching storage items
+3. Supports fuzzy search of keys and values
+4. Search results highlight matching content
 
-#### 高级搜索
-- 支持正则表达式搜索
-- 区分大小写选项
-- 按数据类型筛选
+#### Advanced Search
+- Supports regular expression search
+- Case sensitivity options
+- Filter by data type
 
-### 备份与恢复
+### Backup & Restore
 
-#### 数据备份
-1. 点击 "💾 备份" 按钮
-2. 选择要备份的数据类型
-3. 输入备份名称和描述
-4. 下载备份文件到本地
+#### Data Backup
+1. Click "💾 Backup" button
+2. Select data types to backup
+3. Enter backup name and description
+4. Download backup file locally
 
-#### 数据恢复
-1. 点击"恢复"按钮
-2. 选择备份文件
-3. 预览要恢复的数据
-4. 确认恢复操作
+#### Data Restore
+1. Click "Restore" button
+2. Select backup file
+3. Preview data to restore
+4. Confirm restore operation
 
-### 配置文件管理
+### Configuration File Management
 
-#### 保存配置
-1. 在设置中点击"保存配置文件"
-2. 输入配置文件名称
-3. 选择要包含的数据类型
-4. 保存为 JSON 格式
+#### Save Configuration
+1. Click "Save Configuration File" in settings
+2. Enter configuration file name
+3. Select data types to include
+4. Save as JSON format
 
-#### 加载配置
-1. 选择已保存的配置文件
-2. 预览配置内容
-3. 选择性恢复数据
-4. 支持跨域名使用
+#### Load Configuration
+1. Select saved configuration file
+2. Preview configuration content
+3. Selectively restore data
+4. Supports cross-domain usage
 
-### 主题设置
+### Theme Settings
 
-#### 主题切换
-- **明亮模式**：适合白天使用
-- **暗黑模式**：适合夜间使用  
-- **自动模式**：跟随系统主题
+#### Theme Switching
+- **Light Mode**: Suitable for daytime use
+- **Dark Mode**: Suitable for nighttime use
+- **Auto Mode**: Follows system theme
 
-#### 语言设置
-- 中文界面
-- 英文界面
-- 自动检测浏览器语言
+#### Language Settings
+- Chinese interface
+- English interface
+- Auto-detect browser language
 
-## ❓ 常见问题
+## ❓ FAQ
 
-### 扩展无法加载
-**问题**：扩展安装后无法正常工作
-**解决方案**：
-1. 确保已启用开发者模式
-2. 检查 manifest.json 文件是否正确
-3. 查看浏览器扩展管理页面的错误信息
-4. 重新构建并加载扩展
+### Extension Won't Load
+**Problem**: Extension doesn't work properly after installation
+**Solution**:
+1. Ensure developer mode is enabled
+2. Check if manifest.json file is correct
+3. Check browser extension management page for errors
+4. Rebuild and reload extension
 
-### 数据无法显示
-**问题**：打开扩展后看不到存储数据
-**解决方案**：
-1. 确认当前网页确实有存储数据
-2. 检查域名选择是否正确
-3. 刷新页面后重试
-4. 检查浏览器控制台是否有错误
+### Data Not Displaying
+**Problem**: No storage data visible when opening extension
+**Solution**:
+1. Confirm webpage actually has storage data
+2. Check if domain selection is correct
+3. Refresh page and retry
+4. Check browser console for errors
 
-### Cookie 操作失败
-**问题**：无法添加或修改 Cookie
-**解决方案**：
-1. 检查 Cookie 域名格式是否正确
-2. 确认 SameSite 属性设置
-3. 验证 Cookie 大小限制
-4. 检查浏览器安全策略
+### Cookie Operations Fail
+**Problem**: Cannot add or modify Cookies
+**Solution**:
+1. Check Cookie domain format is correct
+2. Confirm SameSite attribute settings
+3. Verify Cookie size limits
+4. Check browser security policies
 
-### 性能问题
-**问题**：处理大量数据时扩展响应缓慢
-**解决方案**：
-1. 使用搜索功能筛选数据
-2. 启用数据预览模式
-3. 分批处理大型数据集
-4. 清理不必要的存储数据
+### Performance Issues
+**Problem**: Extension responds slowly when handling large amounts of data
+**Solution**:
+1. Use search function to filter data
+2. Enable data preview mode
+3. Process large datasets in batches
+4. Clean up unnecessary storage data
 
-## 💡 最佳实践
+## 💡 Best Practices
 
-### 数据管理
-1. **定期备份重要数据**
-   - 为关键配置创建备份
-   - 使用描述性的备份名称
-   - 定期清理过期备份
+### Data Management
+1. **Regular Backup of Important Data**
+   - Create backups for critical configurations
+   - Use descriptive backup names
+   - Regularly clean up expired backups
 
-2. **合理组织存储结构**
-   - 使用有意义的键名
-   - 避免存储过大的数据
-   - 定期清理无用数据
+2. **Organize Storage Structure Properly**
+   - Use meaningful key names
+   - Avoid storing oversized data
+   - Regularly clean up unused data
 
-### 开发调试
-1. **使用 JSON 格式化**
-   - 提升复杂数据的可读性
-   - 便于发现数据结构问题
-   - 支持快速定位错误
+### Development Debugging
+1. **Use JSON Formatting**
+   - Improve readability of complex data
+   - Easy to spot data structure issues
+   - Support quick error location
 
-2. **利用搜索功能**
-   - 快速定位特定数据
-   - 使用关键词过滤
-   - 提高调试效率
+2. **Utilize Search Function**
+   - Quickly locate specific data
+   - Use keywords for filtering
+   - Improve debugging efficiency
 
-### 安全考虑
-1. **敏感数据处理**
-   - 避免在 LocalStorage 中存储敏感信息
-   - 使用适当的 Cookie 安全属性
-   - 定期清理调试数据
+### Security Considerations
+1. **Sensitive Data Handling**
+   - Avoid storing sensitive information in LocalStorage
+   - Use appropriate Cookie security attributes
+   - Regularly clean up debug data
 
-2. **权限管理**
-   - 仅在必要的域名上使用扩展
-   - 注意跨域数据访问
-   - 保护用户隐私
+2. **Permission Management**
+   - Only use extension on necessary domains
+   - Be aware of cross-domain data access
+   - Protect user privacy
 
-### 性能优化
-1. **数据量控制**
-   - 避免存储过大的单个项目
-   - 使用分页或懒加载
-   - 定期清理历史数据
+### Performance Optimization
+1. **Data Volume Control**
+   - Avoid storing oversized individual items
+   - Use pagination or lazy loading
+   - Regularly clean up historical data
 
-2. **操作效率**
-   - 使用批量操作功能
-   - 利用快捷键提升效率
-   - 合理使用缓存机制
-
----
-
-## 🔗 相关链接
-
-- [项目主页](https://github.com/jasonwong1991/storage-manager-pro)
-- [问题反馈](https://github.com/jasonwong1991/storage-manager-pro/issues)
-- [功能建议](https://github.com/jasonwong1991/storage-manager-pro/discussions)
-- [更新日志](CHANGELOG_ZH.md)
-
-## 📞 技术支持
-
-如果您在使用过程中遇到问题，可以通过以下方式获取帮助：
-
-1. 查阅本教程和 FAQ 部分
-2. 在 GitHub 上提交 Issue
-3. 参与社区讨论
-4. 查看项目文档
+2. **Operation Efficiency**
+   - Use batch operation features
+   - Utilize shortcuts for efficiency
+   - Properly use caching mechanisms
 
 ---
 
-**感谢使用 Storage Manager Pro！** 🚀
+## 🔗 Related Links
 
-如果这个工具对您有帮助，请给我们一个 ⭐ Star！
+- [Project Homepage](https://github.com/jasonwong1991/storage-manager-pro)
+- [Issue Reporting](https://github.com/jasonwong1991/storage-manager-pro/issues)
+- [Feature Requests](https://github.com/jasonwong1991/storage-manager-pro/discussions)
+- [Changelog](CHANGELOG.md)
+
+## 📞 Technical Support
+
+If you encounter issues while using the extension, you can get help through:
+
+1. Consult this tutorial and FAQ section
+2. Submit Issues on GitHub
+3. Participate in community discussions
+4. Check project documentation
+
+---
+
+**Thank you for using Storage Manager Pro!** 🚀
+
+If this tool helps you, please give us a ⭐ Star!

@@ -5,6 +5,46 @@ All notable changes to Storage Manager Pro will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.7] - 2025-01-01
+
+### 🐛 Fixed
+
+#### **Duplicate Name Validation**
+- **Account Names** - Added duplicate name checking when saving Cookie accounts with automatic unique name suggestions
+- **Profile Names** - Added duplicate name checking when saving Storage backup profiles with automatic unique name suggestions
+- **Smart Suggestions** - Automatically generates unique names like "Account Name (2)" when duplicates are detected
+- **User Choice** - Users can choose to use suggested names or keep current names and modify manually
+
+#### **Confirmation Dialog Variable Replacement**
+- **Cookie Deletion** - Fixed variable replacement in Cookie deletion confirmation dialogs to show actual Cookie names
+- **Storage Item Deletion** - Fixed variable replacement in localStorage/sessionStorage item deletion confirmations
+- **Account Deletion** - Fixed variable replacement in account deletion confirmation dialogs
+- **Profile Deletion** - Fixed variable replacement in profile deletion confirmation dialogs
+- **Proper Interpolation** - All confirmation dialogs now correctly display item names using i18next interpolation
+
+#### **Extension Context Invalidated Error on Claude.ai**
+- **Root Cause Resolution** - Fixed "Extension context invalidated" errors specifically occurring on claude.ai and similar AI websites
+- **Enhanced Context Validation** - Added deep extension context checking with actual communication capability testing
+- **Smart Retry Mechanism** - Improved retry logic with detailed error logging and debugging information
+- **Debounce Protection** - Added 100ms debounce mechanism to prevent frequent message sending that could cause context invalidation
+- **Page Lifecycle Monitoring** - Implemented automatic recovery through page visibility, focus, and error event listeners
+- **Special Site Handling** - Added specific handling for claude.ai, ChatGPT, and other AI platforms that use dynamic content management
+
+### 🔧 Technical Improvements
+
+#### **Extension Communication System**
+- **New Method**: `isExtensionContextReallyValid()` - Deep context validation through PING message testing
+- **Enhanced Method**: `sendMessageWithRetry()` - Intelligent retry with pre-retry context validation
+- **Special Site Detection**: Automatic identification of problematic websites for enhanced error handling
+- **Auto-Recovery Mechanism**: Automatic extension context recovery when page state changes
+- **PING Message Handler**: Added background script support for extension communication testing
+
+#### **Debugging & Monitoring**
+- **Comprehensive Debug Guide** - Created detailed troubleshooting documentation for claude.ai issues
+- **Enhanced Error Logging** - Added detailed context information including URL, domain, and error specifics
+- **Page Event Monitoring** - Listening for visibilitychange, focus, beforeunload, and error events
+- **Recovery Logging** - Detailed logging of recovery attempts and success/failure status
+
 ## [2.1.2] - 2025-07-01
 
 ### ✨ Enhanced

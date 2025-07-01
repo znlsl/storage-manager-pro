@@ -67,6 +67,7 @@ export interface AccountData {
   cookies: CookieData[];
   timestamp: number;
   cookieCount: number;
+  domain: string; // 顶级域名
   originalDomain: string;
   domains: string[]; // 支持多域名
 }
@@ -779,6 +780,7 @@ export class CookieAccountManager {
         cookies,
         timestamp: Date.now(),
         cookieCount: cookies.length,
+        domain: topDomain, // 添加顶级域名字段
         originalDomain: domain, // 保留原始域名以便参考
         domains: [domain], // 添加domains字段以符合AccountData接口
       };

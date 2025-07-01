@@ -129,6 +129,7 @@ export interface AccountData {
   }>;
   timestamp: number;
   cookieCount: number;
+  domain: string; // 顶级域名
   originalDomain: string;
 }
 

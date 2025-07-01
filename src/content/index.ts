@@ -1,15 +1,20 @@
 // Content Script
 import type { ChromeMessage, ChromeResponse } from '../types/chrome.types';
-import { ExtensionContextUtils } from '../utils/extension-context.utils';
+import { ExtensionContextUtils, ExtensionStateManager, ExtensionState } from '../utils/extension-context.utils';
 
 class ContentScript {
   private isInitialized = false;
+  private stateManager: ExtensionStateManager;
+  private isListening = false; // 是否正在监听storage事件
+  private storageListener: ((event: StorageEvent) => void) | null = null;
+  private stateCheckInterval: number | null = null;
 
   constructor() {
+    this.stateManager = ExtensionStateManager.getInstance();
     this.initialize();
   }
 
-  private initialize(): void {
+  private async initialize(): Promise<void> {
     if (this.isInitialized) {
       return;
     }
@@ -17,11 +22,87 @@ class ContentScript {
     // 监听来自 background script 和 popup 的消息
     chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
 
-    // 监听页面的存储事件
-    this.setupStorageListeners();
+    // 设置扩展状态监听
+    this.setupExtensionStateManagement();
+
+    // 设置页面生命周期监听器
+    this.setupPageLifecycleListeners();
 
     this.isInitialized = true;
     console.log('Storage Manager Pro content script initialized on:', window.location.hostname);
+  }
+
+  /**
+   * 设置扩展状态管理
+   */
+  private setupExtensionStateManagement(): void {
+    // 监听扩展状态变化
+    this.stateManager.onStateChange((state: ExtensionState) => {
+      console.log('Extension state changed to:', state);
+
+      if (state === ExtensionState.AVAILABLE) {
+        this.startStorageListening();
+      } else if (state === ExtensionState.DISABLED || state === ExtensionState.UNAVAILABLE) {
+        this.stopStorageListening();
+      }
+    });
+
+    // 定期检查扩展状态
+    this.stateCheckInterval = window.setInterval(async () => {
+      await this.stateManager.checkExtensionState();
+    }, 10000); // 每10秒检查一次
+
+    // 初始状态检查
+    this.stateManager.checkExtensionState().then((state) => {
+      if (state === ExtensionState.AVAILABLE) {
+        this.startStorageListening();
+      }
+    });
+  }
+
+  /**
+   * 开始监听storage事件
+   */
+  private startStorageListening(): void {
+    if (this.isListening || this.storageListener) {
+      return; // 已经在监听了
+    }
+
+    console.log('Starting storage event listening');
+
+    this.storageListener = this.handleStorageChange.bind(this);
+    window.addEventListener('storage', this.storageListener);
+    this.isListening = true;
+  }
+
+  /**
+   * 停止监听storage事件
+   */
+  private stopStorageListening(): void {
+    if (!this.isListening || !this.storageListener) {
+      return; // 没有在监听
+    }
+
+    console.log('Stopping storage event listening');
+
+    window.removeEventListener('storage', this.storageListener);
+    this.storageListener = null;
+    this.isListening = false;
+  }
+
+  /**
+   * 处理storage变化事件
+   */
+  private handleStorageChange(event: StorageEvent): void {
+    console.log('Storage event detected:', {
+      key: event.key,
+      oldValue: event.oldValue,
+      newValue: event.newValue,
+      storageArea: event.storageArea === localStorage ? 'localStorage' : 'sessionStorage',
+    });
+
+    // 通知 background script 存储变化
+    this.notifyStorageChange(event);
   }
 
   private handleMessage(
@@ -30,6 +111,15 @@ class ContentScript {
     sendResponse: (response: ChromeResponse) => void,
   ): boolean {
     console.log('Content script received message:', message.type);
+
+    // 当收到任何扩展消息时，说明扩展正在被使用，确保开始监听storage事件
+    if (!this.isListening) {
+      console.log('Extension message received, starting storage listeners');
+      this.startStorageListening();
+      // 重置状态管理器，因为扩展显然是可用的
+      this.stateManager.reset();
+      this.stateManager.checkExtensionState();
+    }
 
     switch (message.type) {
       case 'GET_STORAGE_DATA':
@@ -173,33 +263,121 @@ class ContentScript {
     }
   }
 
-  private setupStorageListeners(): void {
-    // 监听 storage 事件
-    window.addEventListener('storage', (event) => {
-      console.log('Storage event detected:', {
-        key: event.key,
-        oldValue: event.oldValue,
-        newValue: event.newValue,
-        storageArea: event.storageArea === localStorage ? 'localStorage' : 'sessionStorage',
-      });
 
-      // 可以在这里通知 background script 存储变化
-      this.notifyStorageChange(event);
-    });
-  }
+
+  private notifyTimeout: number | null = null;
 
   private notifyStorageChange(event: StorageEvent): void {
-    ExtensionContextUtils.sendMessageWithRetry({
-      type: 'STORAGE_CHANGED',
-      payload: {
-        key: event.key,
-        oldValue: event.oldValue,
-        newValue: event.newValue,
-        storageArea: event.storageArea === localStorage ? 'localStorage' : 'sessionStorage',
-        domain: window.location.hostname,
-      },
-    }).catch(error => {
-      console.error('Failed to notify storage change:', error);
+    // 添加防抖机制，避免频繁的消息发送
+    if (this.notifyTimeout) {
+      clearTimeout(this.notifyTimeout);
+    }
+
+    this.notifyTimeout = setTimeout(async () => {
+      try {
+        // 检查扩展状态
+        const currentState = await this.stateManager.checkExtensionState();
+
+        // 如果扩展被禁用或不可用，跳过通知
+        if (currentState === ExtensionState.DISABLED) {
+          console.log('Extension is disabled, skipping storage change notification');
+          return;
+        }
+
+        if (currentState === ExtensionState.UNAVAILABLE) {
+          console.log('Extension is unavailable, skipping storage change notification');
+          return;
+        }
+
+        // 检查当前页面是否是特殊页面（如claude.ai）
+        const isSpecialSite = this.isSpecialSite();
+        if (isSpecialSite) {
+          console.log('Detected special site, using enhanced error handling');
+        }
+
+        await ExtensionContextUtils.sendMessageWithRetry({
+          type: 'STORAGE_CHANGED',
+          payload: {
+            key: event.key,
+            oldValue: event.oldValue,
+            newValue: event.newValue,
+            storageArea: event.storageArea === localStorage ? 'localStorage' : 'sessionStorage',
+            domain: window.location.hostname,
+            timestamp: Date.now(),
+            url: window.location.href,
+          },
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // 如果是扩展被禁用的错误，停止监听
+        if (errorMessage.includes('Extension is disabled')) {
+          console.warn('Extension is disabled, stopping storage listening');
+          this.stopStorageListening();
+        } else if (ExtensionContextUtils.isContextInvalidatedError(errorMessage)) {
+          console.warn('Extension context invalidated during storage notification');
+          // 让状态管理器重新检查状态
+          this.stateManager.forceCheck();
+        } else {
+          console.error('Failed to notify storage change:', error);
+        }
+      }
+    }, 100); // 100ms防抖
+  }
+
+  /**
+   * 检查是否是特殊网站（如claude.ai）
+   */
+  private isSpecialSite(): boolean {
+    const hostname = window.location.hostname.toLowerCase();
+    const specialSites = [
+      'claude.ai',
+      'chat.openai.com',
+      'bard.google.com',
+      'www.bing.com'
+    ];
+
+    return specialSites.some(site => hostname.includes(site));
+  }
+
+
+
+  /**
+   * 设置页面生命周期监听器
+   */
+  private setupPageLifecycleListeners(): void {
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, checking extension state');
+        this.stateManager.forceCheck();
+      }
+    });
+
+    // 监听页面焦点变化
+    window.addEventListener('focus', () => {
+      console.log('Page gained focus, checking extension state');
+      this.stateManager.forceCheck();
+    });
+
+    // 监听页面卸载
+    window.addEventListener('beforeunload', () => {
+      console.log('Page is being unloaded');
+      if (this.notifyTimeout) {
+        clearTimeout(this.notifyTimeout);
+      }
+      if (this.stateCheckInterval) {
+        clearInterval(this.stateCheckInterval);
+      }
+      this.stopStorageListening();
+    });
+
+    // 监听页面错误
+    window.addEventListener('error', (event) => {
+      if (event.error && ExtensionContextUtils.isContextInvalidatedError(event.error.message)) {
+        console.warn('Detected extension context error in page:', event.error.message);
+        this.stateManager.forceCheck();
+      }
     });
   }
 
