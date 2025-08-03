@@ -1,7 +1,7 @@
 
 # Storage Manager Pro
 
-English | [中文版](README_CN.md)
+English | [中文版](README_ZH.md)
 
 🚀 **Professional Browser Storage Management Tool** - Modern Chrome extension rebuilt with React + TypeScript + Vite
 
